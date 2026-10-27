@@ -1,0 +1,39 @@
+{
+  "baseline_version": "0.1.0",
+  "bootstrapped": false,
+  "project": "{{PROJECT}}",
+  "prefix": "{{PREFIX}}",
+  "owner": "{{OWNER}}",
+  "collaborators": [],
+  "branch": "{{BRANCH}}",
+  "push_on_commit": true,
+  "shell": "PowerShell",
+  "language": "",
+  "source_roots": [],
+  "long_file_lines": 400,
+  "commands": {
+    "build": "",
+    "test": "",
+    "verify": "",
+    "run": ""
+  },
+  "budgets": {
+    "CLAUDE.md": 1250,
+    "AGENTS.md": 200,
+    "docs/agent-notes/README.md": 300
+  },
+  "core": [
+    "BASELINE.md",
+    "AGENTS.md",
+    "tools/docs.py",
+    "tools/test_docs.py",
+    "tools/search_gate.py",
+    ".claude/skills/package/",
+    ".claude/skills/design/",
+    ".claude/skills/feedback/",
+    ".claude/skills/bootstrap/",
+    ".claude/agents/chunk.md",
+    ".claude/agents/fix.md",
+    ".githooks/"
+  ]
+}

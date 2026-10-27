@@ -1,0 +1,20 @@
+### Agents ###
+.claude/settings.local.json
+# Scratch for a session's working notes (pending rulings, chunk briefs and reports); never cited by tracked files
+/working/
+
+### Secrets ###
+.env
+.env.*
+!.env.example
+
+### Python ###
+__pycache__/
+*.pyc
+
+### OS and editors ###
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.code-workspace
