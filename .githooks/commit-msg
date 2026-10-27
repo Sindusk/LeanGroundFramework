@@ -1,0 +1,11 @@
+#!/bin/sh
+# Checks the commit message's trailer (tools/commit_msg.py). Turned on by: git config core.hooksPath .githooks
+repo_root=$(git rev-parse --show-toplevel) || exit 1
+# Each candidate must run, not just exist: Windows ships python3 as a Microsoft Store stub that fails.
+for python in python python3 py; do
+  if "$python" -c "" >/dev/null 2>&1; then
+    exec "$python" "$repo_root/tools/commit_msg.py" "$1"
+  fi
+done
+echo "commit-msg: no Python found; the message was not checked." >&2
+exit 0

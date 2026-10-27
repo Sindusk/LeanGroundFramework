@@ -21,6 +21,8 @@ This document states what is true. In section 4, each system's **Built rules** s
 - [6. Roadmap](#6-roadmap)
   - [6.1 Ledger](#61-ledger)
   - [6.2 Open Design Questions](#62-open-design-questions)
+    - [Open questions](#open-questions)
+    - [Idea backlog](#idea-backlog)
   - [6.3 Initiatives](#63-initiatives)
   - [6.4 Delivered](#64-delivered)
   - [6.5 Releases](#65-releases)
@@ -85,13 +87,15 @@ The design decisions still open, and the idea backlog. **Nothing here is a rule*
 
 **How a question runs.** A question is a numbered item: the gap and where the design is silent, the candidates **(a)**, **(b)** where there are any, where it was found, then a **Recommendation:** with its tradeoff and the **Cost of being wrong:**. When the owner or a collaborator answers, the answer is written under the question as `> **Decision (date, name):**`, naming who decided: the rule as decided, whether it overrules the recommendation and why, what is unverified, and "Not yet consolidated". Consolidation is a separate pass the owner asks for, usually covering several decided questions: the rule goes into the design, the reason into `design-history.md`, and the question is removed. A question belonging to an Initiative with a working document is asked there instead, with a note here naming the document and the numbers.
 
-**Open questions**
+#### Open questions
+
+Grouped under `#####` topic headings, which `python tools/docs.py raise` makes as needed.
 
 None yet.
 
-**Idea backlog**
+#### Idea backlog
 
-Pitches not yet adopted, each a bold letter and a sentence (`- **A.** ...`), so a pitch is cited as "pitch A". A pitch adopted as an Initiative is removed here and goes on the ledger as Undesigned.
+Pitches not yet adopted, each a `##### A. Name` heading with a paragraph, so a pitch is cited as "pitch A". A pitch adopted as an Initiative is removed here (`python tools/docs.py drop DESIGN.md "A. Name"`) and goes on the ledger as Undesigned.
 
 None yet.
 

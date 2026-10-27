@@ -1,0 +1,8 @@
+# Text files keep LF in the repository and the working tree, so tools that write LF (tools/docs.py) never
+# show line-ending changes. Windows batch files need CRLF to run reliably.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.png binary
+*.jpg binary
+*.ico binary

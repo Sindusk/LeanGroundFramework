@@ -11,7 +11,7 @@ How work runs in this repository. `CLAUDE.md` routes here; read the section your
 - **Cutting, building and closing** a package or Initiative are the package skill's: `.claude/skills/package/`.
 - **Claiming an ID.** The ledger is the only allocator: an ID exists once a line carrying it is committed; the ledger states the next free number; retired numbers are never reused.
 - **Builders and reviews.** Each package line names its builder by exact model name, "(Claude Opus 5.5)". The owner decides per Initiative or package whether a line also names a reviewer, "(Claude Sonnet 5.5, reviewed by Claude Opus 5.5)"; a build is never reviewed by its own model.
-- **Naming.** A package's commit subject leads with its ID and name ("{{PREFIX}}-104 Search filters: …"); ordinary work uses an ordinary subject.
+- **Naming.** A package's commit subject leads with its ID and name ("{{PREFIX}}-nnn Search filters: …"); ordinary work uses an ordinary subject.
 - **Delivery records** go into `docs/archive/initiatives/` when a package closes, one file per Initiative with one block per package (naming in `docs/archive/README.md`), and never live in `DESIGN.md`.
 
 ## Design changes
@@ -50,7 +50,7 @@ How work runs in this repository. `CLAUDE.md` routes here; read the section your
 ## Build and verify
 
 <!-- bootstrap: each command from tools/baseline.json "commands", one bullet each: what it runs, how long it takes, how to read its result quietly (a filter that prints only the pass/fail lines), and where the full log is. Then the test layers: what a unit test covers, what an integration or end-to-end test covers, where each lives, and what must never be faked. -->
-- `python tools/docs.py check`: every design section cited in the live documents and sources resolves, the ledger agrees with its blocks, every question a line names exists, no example names a real package id (write `{{PREFIX}}-nnn`), and each file an agent loads unasked is within its token budget (`python tools/docs.py budget`). Run it after changing section numbers, the ledger, a package block, `CLAUDE.md` or a skill. `python -m unittest tools/test_docs.py` tests the script; run it after changing `tools/docs.py`.
+- `python tools/docs.py check`: every design section cited in the live documents and sources resolves, the ledger agrees with its blocks, every question a line names exists, no example names a real package id (write `{{PREFIX}}-nnn`), and each file an agent loads unasked is within its token budget (`python tools/docs.py budget`). Run it after changing section numbers, the ledger, a package block, `CLAUDE.md` or a skill. `python -m unittest tools/test_docs.py tools/test_hooks.py` tests the kit's tools; run it after changing one. A command only this project needs goes in `tools/project_docs.py`, never in `tools/docs.py`, which the kit replaces on upgrade.
 
 ## Manual checks
 

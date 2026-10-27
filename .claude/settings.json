@@ -1,0 +1,48 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell|Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": [
+              "-c",
+              "import os, runpy, sys; p = os.path.join(os.environ.get('CLAUDE_PROJECT_DIR', '.'), 'tools', 'search_gate.py'); sys.argv = [p]; os.path.isfile(p) and runpy.run_path(p, run_name='__main__')"
+            ],
+            "statusMessage": "Checking the search and read route"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": [
+              "-c",
+              "import os, runpy, sys; p = os.path.join(os.environ.get('CLAUDE_PROJECT_DIR', '.'), 'tools', 'edit_gate.py'); sys.argv = [p]; os.path.isfile(p) and runpy.run_path(p, run_name='__main__')"
+            ],
+            "statusMessage": "Checking for shell edits of tracked files"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": [
+              "-c",
+              "import os, runpy, sys; p = os.path.join(os.environ.get('CLAUDE_PROJECT_DIR', '.'), 'tools', 'stop_check.py'); sys.argv = [p]; os.path.isfile(p) and runpy.run_path(p, run_name='__main__')"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

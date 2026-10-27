@@ -1,6 +1,6 @@
 # Lessons waiting for a retro
 
-A package's close adds at most three lines here; it changes no skill, note or tool for them. A retro (`.claude/skills/package/retro.md`), run when the owner asks, about every five closed packages, works them into the procedure and removes them.
+A package's close adds at most three lines here; it changes no skill, note or tool for them. A retro (the package skill's retro stage), run when the owner asks, about every five closed packages, works them into the procedure and removes them.
 
 Last retro: none yet.
 
