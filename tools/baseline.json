@@ -23,7 +23,23 @@
   "budgets": {
     "CLAUDE.md": 1250,
     "AGENTS.md": 200,
-    "docs/agent-notes/README.md": 300
+    "docs/agent-notes/README.md": 300,
+    ".claude/skills/package/SKILL.md": 2000,
+    ".claude/skills/package/cut.md": 850,
+    ".claude/skills/package/dispatch.md": 1280,
+    ".claude/skills/package/handover.md": 1100,
+    ".claude/skills/package/close.md": 980,
+    ".claude/skills/package/retro.md": 460,
+    ".claude/skills/design/SKILL.md": 2100,
+    ".claude/skills/design/consolidate.md": 1000,
+    ".claude/skills/design/rounds-and-triage.md": 650,
+    ".claude/skills/design/working-documents-and-backlog.md": 480,
+    ".claude/skills/feedback/SKILL.md": 1400,
+    ".claude/skills/bootstrap/SKILL.md": 1450,
+    ".claude/skills/bootstrap/interview.md": 650,
+    ".claude/skills/bootstrap/adopt.md": 500,
+    ".claude/agents/chunk.md": 1200,
+    ".claude/agents/fix.md": 650
   },
   "core": [
     "BASELINE.md",

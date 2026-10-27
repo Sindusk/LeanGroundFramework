@@ -331,8 +331,12 @@ class Check(Repo):
     def test_placeholders_once_bootstrapped(self):
         self.put("notes.md", "# {{PROJECT}}\n\n<!-- bootstrap: fill this -->\n")
         self.put("BASELINE.md", "# Kit\n\n`{{PREFIX}}` is the prefix.\n")
+        self.put(".claude/skills/kit/SKILL.md", "# Kit skill\n\nFills `{{PROJECT}}`.\n")
+        self.configure(core=["tools/docs.py", ".claude/skills/kit/"], budgets={"CLAUDE.md": 200,
+                                                                              ".claude/skills/kit/SKILL.md": 100})
         self.assertEqual(2, len([p for p in self.problems() if "still holds" in p]))
-        self.configure(bootstrapped=False)
+        self.configure(bootstrapped=False, core=["tools/docs.py", ".claude/skills/kit/"],
+                       budgets={"CLAUDE.md": 200, ".claude/skills/kit/SKILL.md": 100})
         self.assertEqual([], self.problems())
 
     def test_a_package_being_built_needs_its_history_row(self):
@@ -380,6 +384,15 @@ class Budgets(Repo):
         self.put("CLAUDE.md", f"# Instructions\n\n{sentence}\n")
         self.put("AGENTS.md", f"# Agents\n\n{sentence}\n")
         self.configure(budgets={"CLAUDE.md": 200, "AGENTS.md": 200})
+        self.assertIn("repeats a sentence of", "\n".join(self.problems()))
+
+    def test_two_agents_never_share_a_context(self):
+        sentence = "Do not commit, stage or push anything, and never spawn a subagent of your own."
+        self.put(".claude/agents/one.md", f"# One\n\n{sentence}\n")
+        self.put(".claude/agents/two.md", f"# Two\n\n{sentence}\n")
+        self.configure(budgets={"CLAUDE.md": 200, ".claude/agents/one.md": 100, ".claude/agents/two.md": 100})
+        self.assertEqual([], self.problems())
+        self.put("CLAUDE.md", f"# Instructions\n\n{sentence}\n")
         self.assertIn("repeats a sentence of", "\n".join(self.problems()))
 
 

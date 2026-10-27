@@ -170,7 +170,7 @@ PLUGIN = "tools/project_docs.py"
 
 # Read as records, not routes: their citations are of their own day, so check never follows them.
 RECORDS = (HISTORY,)
-# Describes the kit's placeholders, so it may name them once bootstrapped.
+# Describes the kit's placeholders, so it may name them once bootstrapped, as may every core file.
 KIT_DOCS = ("BASELINE.md",)
 
 LEDGER_GROUPS = ("Work-Ready", "Designed", "Undesigned")
@@ -1132,7 +1132,7 @@ def find_problems(repo, files, sources=()):
     # Once bootstrapped, every placeholder and bootstrap comment has been filled in.
     left = 0
     for name in live:
-        if name in KIT_DOCS:
+        if name in KIT_DOCS or is_core(repo, name):
             continue
         for n, found in unfenced_matches(load(name, repo), PLACEHOLDER):
             left += 1
@@ -1219,11 +1219,20 @@ def repeated_sentences(texts):
     return {sentence: names for sentence, names in seen.items() if len(names) > 1}
 
 
+def loaded_together(names):
+    """Whether two of these files share a context: the session holds CLAUDE.md, AGENTS.md, the skills and
+    REPEAT_SOURCES; a subagent holds its own definition and CLAUDE.md, never another agent's or a skill."""
+    session = [name for name in names if not name.startswith(AGENTS)]
+    agents = [name for name in names if name.startswith(AGENTS)]
+    return len(session) >= 2 or bool(agents and {"CLAUDE.md", "AGENTS.md"} & set(session))
+
+
 def budget_repeats(repo, files, texts):
-    """repeated_sentences across the budgeted texts and REPEAT_SOURCES, keeping those a budgeted file holds."""
+    """repeated_sentences across the budgeted texts and REPEAT_SOURCES that a budgeted file holds, where two of
+    the files holding it are loaded together."""
     also = {name: (Path(repo) / name).read_text(encoding="utf-8") for name in REPEAT_SOURCES if name in files}
     return {sentence: where for sentence, where in repeated_sentences({**texts, **also}).items()
-            if any(name in texts for name in where)}
+            if any(name in texts for name in where) and loaded_together(where)}
 
 
 def check_budgets(repo, files):
