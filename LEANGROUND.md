@@ -29,7 +29,7 @@ The package passed its five-step manual check first time. The run's findings wer
 Copy everything except `.git` into the new project's folder, then open a session there and say "bootstrap". From PowerShell:
 
 ```powershell
-robocopy C:\Users\sinis\Documents\LeanGroundFramework <new project folder> /E /XD .git
+robocopy <framework folder> <new project folder> /E /XD .git
 ```
 
 The bootstrap skill runs `git init` if needed and `git config core.hooksPath .githooks`, interviews the owner, replaces the `{{…}}` placeholders, fills every `<!-- bootstrap: … -->` comment in the documents (then deletes the comment), writes `tools/leanground.json`'s project fields, seeds the ledger's Undesigned group, runs `python tools/docs.py check` and makes the first commit. `check` refuses a placeholder or bootstrap comment left behind once `leanground.json` says `"bootstrapped": true`.
