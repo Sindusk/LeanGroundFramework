@@ -268,8 +268,13 @@ class Doc:
 
 
 def tracked(repo=REPO, *patterns):
-    out = subprocess.run(["git", "ls-files", *patterns], cwd=repo, capture_output=True, text=True, check=True)
-    return [line for line in out.stdout.splitlines() if line]
+    """The repository's files as git sees them: committed or staged, and new files not gitignored, so a file is
+    read before its first commit. Exits with a reason outside a git repository."""
+    out = subprocess.run(["git", "ls-files", "--cached", "--others", "--exclude-standard", "--deduplicate", *patterns],
+                         cwd=repo, capture_output=True, encoding="utf-8", errors="replace")
+    if out.returncode != 0:
+        raise SystemExit(f"{Path(repo)} is not a git repository: run git init first. ({out.stderr.strip()})")
+    return [line for line in out.stdout.splitlines() if line and (Path(repo) / line).is_file()]
 
 
 def tracked_markdown(repo=REPO):
@@ -1044,6 +1049,12 @@ def check_ledger(ledger, design, all_ids, asked_elsewhere=()):
             if q not in questions and q not in asked_elsewhere:
                 report(n, f"question {q} is named on a ledger line but is not open in {DESIGN} 6.2"
                           " or a working document")
+    for start, end in ledger.initiatives.values():
+        for n in range(start, end + 1):
+            for q in cited_questions(ledger.doc.lines[n - 1]):
+                if q not in questions and q not in asked_elsewhere:
+                    report(n, f"a block names question {q}, which is not open; once it is consolidated, cite the"
+                              " section that holds its rule")
 
     # A wait on something closed is stale: close drops it, and this catches what close missed. Waits on
     # package ids and on names (capitalised, as Initiatives are) are checked; a wait on prose is not.
@@ -1308,7 +1319,8 @@ def show_context(repo):
     folder = transcript_dir(repo)
     transcripts = sorted(folder.glob("*.jsonl"), key=lambda path: path.stat().st_mtime) if folder.is_dir() else []
     if not transcripts:
-        print(f"No transcripts in {folder}.")
+        print(f"No transcripts in {folder} (a session started in another folder keeps them there). Judge by the"
+              " plan instead: past about 20 files, the build goes to subagents.")
         return 1
     newest = transcripts[-1]
     requests, last, peak = context_use(newest.read_text(encoding="utf-8", errors="replace").splitlines())
@@ -1498,8 +1510,34 @@ def record_answers(repo, files, date, by, answers=None):
         lines = remove_lines(lines, start, end)
     for start, end in sorted(empty_topics(Doc(ROUNDS, "\n".join(lines))), reverse=True):
         lines = remove_lines(lines, start, end)
+    lines, finished = remove_answered_rounds(lines)
+    done += [f"{name} asks nothing more: removed, and listed as answered" for name in finished]
     write(repo / ROUNDS, "\n".join(lines))
     return done
+
+
+ANSWERED = "Answered rounds:"
+
+
+def remove_answered_rounds(lines):
+    """(lines without each ## Round left asking no question, the rounds' names), each named on the
+    'Answered rounds:' line, whose 'none yet.' the first replaces."""
+    doc = Doc(ROUNDS, "\n".join(lines))
+    finished = []
+    for heading in reversed([h for h in doc.headings if h[1] == 2 and re.match(r"Round \d+", h[2])]):
+        start, end = heading_block(doc, heading)
+        if not any(h[1] == 4 and start < h[0] <= end for h in doc.headings):
+            lines = remove_lines(lines, start, end)
+            finished.insert(0, re.match(r"Round \d+(?: \([\d-]+\))?", heading[2]).group(0))
+    if finished:
+        at = next((n for n, line in enumerate(lines) if line.startswith(ANSWERED)), None)
+        if at is None:
+            lines += ["", f"{ANSWERED} {', '.join(finished)}."]
+        else:
+            listed = lines[at][len(ANSWERED):].strip().rstrip(".")
+            names = ([] if listed in ("", "none yet") else [listed]) + finished
+            lines[at] = f"{ANSWERED} {', '.join(names)}."
+    return lines, finished
 
 
 def chat_round(doc, number=None):
@@ -1672,7 +1710,9 @@ def package_changes(repo, package_id):
     test files under the source roots (or anywhere outside docs), the tests each test file gained, and the
     subjects of its commits after the first, without the id and name. Empty without git or commits."""
     def git(*args):
-        return subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True, check=True).stdout
+        # Git writes UTF-8 whatever the console's code page; text=True alone decodes cp1252 on Windows.
+        return subprocess.run(["git", *args], cwd=repo, capture_output=True, encoding="utf-8", errors="replace",
+                              check=True).stdout
     roots = config(repo)["source_roots"] or ["."]
     try:
         # --grep matches any line of a message, so a body line naming the id would match too: subjects only.
@@ -2046,6 +2086,8 @@ def draft_parts(text):
         start, end = heading_block(doc, heading)
         body = doc.lines[start:end]
         if heading[2].startswith("Questions:"):
+            if where is not None:
+                raise ValueError("The draft has two `## Questions:` parts; raise each topic from a draft of its own.")
             where, note, items = heading[2].split(":", 1)[1].strip(), [], []
             for line in body:
                 if line.startswith("- **"):
@@ -2061,8 +2103,9 @@ def draft_parts(text):
             glossary = [line for line in body if line.startswith("- **")]
         else:
             raise ValueError(f'The draft\'s "## {heading[2]}" is none of Questions:, Round or Glossary.')
-    if not items:
-        raise ValueError("The draft has no `## Questions: <where>` part with `- **G1.**` items.")
+    if not items and round_lines is None:
+        raise ValueError("The draft has no `## Questions: <where>` part with `- **G1.**` items, and no round.")
+    items = items or []
     bad = [item[0][:40] for item in items if not DRAFT_ITEM.match(item[0])]
     if bad:
         raise ValueError(f"These items have no placeholder id such as **G1.**: {'; '.join(bad)}")
@@ -2149,9 +2192,8 @@ def raise_into(repo, where, note, bullets):
 
 
 def append_round(text, round_lines):
-    """The rounds file with round_lines added after its last round; the new round's number must be the highest.
-    The first round goes before the '---' that ends the file's introduction's list of consolidated rounds,
-    if the file has one, else at its end."""
+    """The rounds file with round_lines added after its last round, the first at the file's end; the new round's
+    number must be the highest."""
     doc = Doc(ROUNDS, text)
     rounds = [h for h in doc.headings if h[1] == 2 and re.match(r"Round \d+", h[2])]
     new = int(re.match(r"## Round (\d+)", round_lines[0]).group(1))
@@ -2205,21 +2247,29 @@ def add_draft(repo, source, with_round):
     free = NEXT_FREE.search(design_text)
     if free is None:
         raise ValueError(f"{DESIGN} 6.2 states no next free number.")
+    # A round may also ask questions raised earlier, by their numbers: each must be open.
+    raised = [int(m.group(1)) for line in round_lines or [] for m in [re.match(r"#### Q(\d+)\.", line)] if m]
+    missing = sorted(set(raised) - set(all_questions(repo, tracked_markdown(repo))))
+    if missing:
+        raise ValueError(f"The round asks question {', '.join(map(str, missing))}, which is not open.")
     numbers = draft_numbers(items, round_lines, int(free.group(2)))
-    ordered = sorted(items, key=lambda item: numbers[DRAFT_ITEM.match(item[0]).group(1)])
-    bullets = renumber("\n".join(line for item in ordered for line in item), numbers,
-                       lambda n: f"question {n}").split("\n")
-    name, text = raise_into(repo, where, renumber("\n".join(note), numbers, lambda n: f"question {n}").split("\n")
-                            if note else [], bullets)
-    last = max(numbers.values())
-    writes = {name: text}
-    design_text = writes.get(DESIGN, design_text)
-    writes[DESIGN] = NEXT_FREE.sub(lambda m: f"{m.group(1)}{last + 1}{m.group(3)}", design_text, count=1)
-    done = [f"{q} is question {n}" for q, n in sorted(numbers.items(), key=lambda pair: pair[1])]
-    done.append(f"Raised questions {min(numbers.values())} to {last} in {name}; the next free number is {last + 1}.")
+    writes, done = {}, []
+    if items:
+        ordered = sorted(items, key=lambda item: numbers[DRAFT_ITEM.match(item[0]).group(1)])
+        bullets = renumber("\n".join(line for item in ordered for line in item), numbers,
+                           lambda n: f"question {n}").split("\n")
+        name, text = raise_into(repo, where, renumber("\n".join(note), numbers, lambda n: f"question {n}").split("\n")
+                                if note else [], bullets)
+        last = max(numbers.values())
+        writes[name] = text
+        design_text = writes.get(DESIGN, design_text)
+        writes[DESIGN] = NEXT_FREE.sub(lambda m: f"{m.group(1)}{last + 1}{m.group(3)}", design_text, count=1)
+        done += [f"{q} is question {n}" for q, n in sorted(numbers.items(), key=lambda pair: pair[1])]
+        done.append(f"Raised questions {min(numbers.values())} to {last} in {name}; the next free number is {last + 1}.")
     if with_round:
         rounds_text = append_round((repo / ROUNDS).read_text(encoding="utf-8"),
-                                   renumber("\n".join(round_lines), numbers, lambda n: f"Q{n}").split("\n"))
+                                   renumber("\n".join(round_lines), numbers, lambda n: f"Q{n}").split("\n")
+                                   if numbers else round_lines)
         rounds_text, skipped = merge_glossary(rounds_text, glossary)
         writes[ROUNDS] = rounds_text
         done.append(f"Added {round_lines[0][3:]} to {ROUNDS}"
@@ -2399,6 +2449,9 @@ def show_signatures(repo, names):
     include_private = "--all" in names
     roots = config(repo)["source_roots"]
     sources = source_files(repo)
+    # The kit's and the project's own tools are code an agent calls too.
+    sources += [name for name in tracked(repo, "tools/") if Path(name).suffix in docs_sig.ADAPTERS
+                and name not in sources]
     for name in [name for name in names if name != "--all"]:
         name, _, member = name.partition(":")
         paths = docs_sig.find_sources(sources, name)

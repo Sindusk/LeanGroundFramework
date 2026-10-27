@@ -16,4 +16,4 @@ Question numbers are `DESIGN.md`'s permanent numbers, so "Q12" means the same th
 
 ---
 
-Consolidated rounds: none yet.
+Answered rounds: none yet.

@@ -10,7 +10,6 @@
   "commit_trailer": true,
   "commit_body": false,
   "shell": "PowerShell",
-  "language": "",
   "source_roots": [],
   "long_file_lines": 400,
   "subagent_build_past": 200000,

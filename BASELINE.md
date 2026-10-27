@@ -2,12 +2,27 @@
 
 A starting kit for a project built entirely through AI agents: a routing `CLAUDE.md`, a design document and a ledger, working agreements, a docs tool that reads one block at a time, and skills for designing and building Work Packages. It is extracted from Azothos (ProjectArcanum), PolarityFracture and CKReview.
 
-**The kit is complete but untried.** Phases 1 to 3 are done; phase 4, a dry run on a throwaway project, is next:
+**The kit is complete and has had one dry run.** Its phases:
 
 1. **Scaffold:** layout, `AGENTS.md`, `CLAUDE.md`, `DESIGN.md`, `LEDGER.md`, history, questions, agent notes, `tools/baseline.json`. Done.
 2. **Tooling:** `tools/docs.py` (with `tools/docs_sig.py`, the `sig` adapters for Java, Python and TypeScript/JavaScript, and a `tools/project_docs.py` plugin hook); the hooks in `.claude/settings.json` (`tools/search_gate.py`, `tools/edit_gate.py`, `tools/stop_check.py`); `.githooks/commit-msg` (`tools/commit_msg.py`); tests in `tools/test_docs.py` and `tools/test_hooks.py`. Done.
 3. **Skills and agents:** `.claude/skills/` `package` (cut, build, handover, close, retro, dispatch for oversized packages, `why.md`), `design` (raise, round, record, consolidate, triage, working documents), `feedback` (loose notes, sorted by size) and `bootstrap` (interview, adopting existing code); `.claude/agents/` `chunk` and `fix`. Budgets in `tools/baseline.json`, enforced by `docs.py check`. Done.
-4. **Dry run:** a throwaway project bootstrapped and one package taken from cut to close; the cost measured and the kit fixed.
+4. **Dry run:** a throwaway project bootstrapped and one package taken from cut to close; the cost measured and the kit fixed. Done (below).
+
+## The dry run (2026-10-27)
+
+Shelf, a Python command-line reading list, was taken from a fresh copy to its first closed package, each stage by a fresh agent reading the kit cold, with the owner's answers scripted. Calls and the context each stage ended at:
+
+| Stage | Calls | Context |
+|---|---|---|
+| Bootstrap | 78 | ~127k |
+| Design round, record, consolidate | 44 | ~113k |
+| Cut (four packages; the rule attack raised three questions) | 23 | ~85k |
+| Decisions on those questions, applied at once | 28 | ~97k |
+| Build SH-100 (rules, code, 29 tests, five falsifications) | 62 | ~132k |
+| Close | 20 | ~82k |
+
+The package passed its five-step manual check first time. The run's findings were fixed in the kit: `docs.py` reads files before their first commit and decodes git's output as UTF-8 (a Windows crash in `close`), refuses outside a repository, takes rounds of questions already raised, removes answered rounds, refuses a draft with two question topics, flags a ledger block naming a closed question, and reads `tools/` for `sig`; the skills gained the clarifications the agents asked for. Compare later runs and retros with this table.
 
 ## Starting a project
 
@@ -32,6 +47,20 @@ The bootstrap skill runs `git init` if needed and `git config core.hooksPath .gi
 | `docs/agent-notes/*`, `docs/archive/README.md` | project |
 | `tools/baseline.json` (its project fields), `tools/project_docs.py` | project |
 | `.claude/settings.json`: its hooks are the kit's, its permissions the project's | both |
+
+## Settings
+
+`tools/baseline.json` holds what the tools and skills need to know about the project:
+
+- `project`, `prefix`, `owner`, `collaborators`, `branch`: names the documents and tools use; `prefix` builds package ids (`AZ-104`).
+- `bootstrapped`: false until the bootstrap skill finishes; then `check` refuses any placeholder left.
+- `push_on_commit`, `commit_trailer`, `commit_body`: the commit rules the Stop and commit-msg hooks enforce.
+- `shell`: the primary shell, for the documents' command examples.
+- `source_roots`: where the code lives, for `sig`, `close`'s record and `check`'s citations; empty means every tracked file.
+- `long_file_lines`: past this, the search gate refuses a whole Read of a source file.
+- `subagent_build_past`: the context at the rules commit past which a build goes to subagents.
+- `commands`: `build` compiles or bundles, `test` runs the unit tests, `verify` is the whole gate a package passes before its handover (build, tests, lint, `docs.py check`), `run` starts the app for a manual check. `working-agreements.md` "Build and verify" gives each with its filter; agents read them there.
+- `budgets`: tokens per file an agent loads unasked. `core`: the kit's files (see above).
 
 ## Hooks
 

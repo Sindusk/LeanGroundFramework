@@ -13,7 +13,7 @@ from pathlib import Path
 
 
 def git(repo, *args):
-    return subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True).stdout
+    return subprocess.run(["git", *args], cwd=repo, capture_output=True, encoding="utf-8", errors="replace").stdout
 
 
 def reminder(repo):

@@ -54,7 +54,7 @@ class Repo:
         self.ignored = {}
 
     def git(self, *args):
-        return subprocess.run(["git", *args], cwd=self.cwd, capture_output=True, text=True)
+        return subprocess.run(["git", *args], cwd=self.cwd, capture_output=True, encoding="utf-8", errors="replace")
 
     def absolute(self, candidate):
         path = Path(candidate)

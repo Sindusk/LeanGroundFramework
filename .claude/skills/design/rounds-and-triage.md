@@ -13,7 +13,7 @@ When the owner asks where ledger items should move, read the lines (`python tool
 `python tools/docs.py raise <draft>` and `round add <draft>` read a scratch file in this shape:
 
 - `## Questions: DESIGN.md <topic>` (a `#####` topic of 6.2's Open questions, made if new) or `## Questions: docs/initiatives/<x>.md`: an optional note paragraph, then one `- **G1.**` item per question, ids being placeholders (letters and a number), cross-references written `G2`, `QG2` or `questions G1 and G2`.
-- `## Round N (date): <what it settles>`, in the round format of `SKILL.md` stage 2, its questions headed `#### QG1.`; they are numbered in the round's order. Only for `round add`.
+- `## Round N (date): <what it settles>`, in the round format of `SKILL.md` stage 2, its new questions headed `#### QG1.` (numbered in the round's order) and questions already raised `#### Q12.`, which must be open. Only for `round add`; a round of raised questions alone needs no `## Questions:` part.
 - `## Glossary`: `- **Term:** definition` lines; terms already in the glossary are skipped and named, to amend by hand.
 
 Each writes nothing unless every part fits, then checks. By hand afterwards: the ledger lines naming the questions, and for a working document a note under a 6.2 heading naming it and the numbers.

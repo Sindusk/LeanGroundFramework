@@ -45,7 +45,7 @@ How work runs in this repository. `CLAUDE.md` routes here; read the section your
 - Edit existing files with the Edit tool and create new ones with Write. Never write files through the shell; a hook blocks it.
 - Search tracked files with the Grep tool or `git grep`, and read them with Read (a range) or `python tools/docs.py`; a hook refuses the shell's readers on tracked files. Logs and build output may use the shell.
 - Several patterns: `git grep -e 'a' -e 'b'`, single-quoted.
-<!-- bootstrap: the primary shell and its traps. For Windows PowerShell 5.1: no redirects (a hook blocks them, `2>$null` too); keep `>` and double quotes out of commit messages, since PowerShell splits a here-string at them when passing it to git; "LF will be replaced by CRLF" warnings are harmless. -->
+<!-- bootstrap: the primary shell and its traps. For Windows PowerShell 5.1: no redirects (a hook blocks them, `2>$null` too); keep `>` and double quotes out of commit messages, since PowerShell splits a here-string at them when passing it to git; "LF will be replaced by CRLF" warnings are harmless; a program's output read by Python is decoded with the console's code page unless the call names `encoding="utf-8"`. -->
 
 ## Build and verify
 

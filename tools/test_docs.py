@@ -162,7 +162,7 @@ CONFIG = {"prefix": "TS", "owner": "Owner", "bootstrapped": True, "budgets": {"C
 
 
 def git(repo, *args):
-    return subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True, check=True).stdout
+    return subprocess.run(["git", *args], cwd=repo, capture_output=True, encoding="utf-8", check=True).stdout
 
 
 def run(function, *args, **kwargs):
@@ -362,6 +362,25 @@ class Check(Repo):
         self.put("DESIGN.md", DESIGN.replace("- **8.** A second question.",
                                              "- **8.** A second question.\n" + docs.decision_stub("2026-10-02", "b", "Owner")))
         self.assertIn("still holds record's TODO", "\n".join(self.problems()))
+
+    def test_a_block_naming_a_closed_question(self):
+        self.put("LEDGER.md", LEDGER.replace("*Outcome:* saved.", "*Outcome:* saved, as question 99 decided."))
+        self.assertIn("a block names question 99", "\n".join(self.problems()))
+
+    def test_new_files_count_before_their_first_commit(self):
+        self.put("notes.md", "# Notes\n\nSee `missing.md`.\n")
+        files = docs.tracked_markdown(self.repo)
+        self.assertIn("notes.md", files)
+        self.put(".gitignore", "ignored.md\n")
+        self.put("ignored.md", "# Ignored\n")
+        self.assertNotIn("ignored.md", docs.tracked_markdown(self.repo))
+
+    def test_outside_a_repository(self):
+        outside = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        with self.assertRaises(SystemExit) as raised:
+            docs.tracked(outside)
+        self.assertIn("git init", str(raised.exception))
 
     def test_a_project_check(self):
         self.put("tools/project_docs.py", "def problems(repo, files):\n    return [('x.md', 1, 'project rule')]\n")
@@ -593,6 +612,32 @@ Storage questions.
         self.assertNotIn("### Files", self.read("design-questions.md"))
         self.assertEqual(1, code)  # the stub's TODO is still to write
         self.assertIn("still holds record's TODO", out)
+
+    def test_a_round_of_questions_already_raised(self):
+        self.put("draft.md", "## Round 1 (2026-10-02): search\n\n#### Q7. Which index?\n\n> **Response:**\n\n"
+                             "#### Q8. Second?\n\n> **Response:**\n")
+        code, out = self.main("round", "add", str(self.repo / "draft.md"))
+        self.assertEqual(0, code, out)
+        self.assertIn("#### Q7. Which index?", self.read("design-questions.md"))
+        self.assertIn("next free number: **20**", self.read("DESIGN.md"))
+        self.put("draft.md", "## Round 2 (2026-10-03): x\n\n#### Q50. Gone?\n\n> **Response:**\n")
+        self.assertEqual(1, self.main("round", "add", str(self.repo / "draft.md"))[0])
+
+    def test_an_answered_round_is_removed_and_listed(self):
+        self.put("design-questions.md", ROUNDS.replace("Consolidated rounds: none yet.", "Answered rounds: none yet."))
+        self.put("draft.md", "## Round 1 (2026-10-02): search\n\n### Index\n\n#### Q7. Which index?\n\n> **Response:**\n")
+        self.main("round", "add", str(self.repo / "draft.md"))
+        self.put("LEDGER.md", LEDGER.replace(" and question 7", ""))
+        self.main("record", "7=rec", "--date", "2026-10-03")
+        rounds = self.read("design-questions.md")
+        self.assertNotIn("## Round 1", rounds)
+        self.assertIn("Answered rounds: Round 1 (2026-10-02).", rounds)
+
+    def test_two_questions_parts_are_refused(self):
+        self.put("draft.md", "## Questions: DESIGN.md A\n\n- **G1.** a?\n\n## Questions: DESIGN.md B\n\n- **G2.** b?\n")
+        code, out = self.main("raise", str(self.repo / "draft.md"))
+        self.assertEqual(1, code)
+        self.assertIn("two `## Questions:` parts", out)
 
     def test_raise_into_an_empty_open_questions(self):
         self.put("DESIGN.md", DESIGN.replace("##### Search\n\n- **7.** Which index should search use? Found cutting"
@@ -843,6 +888,10 @@ class Sig(Repo):
         _, out = self.main("sig", "index:build")
         self.assertIn("== index.build  src/search/index.py:16-19", out)
         self.assertEqual(1, self.main("sig", "Missing")[0])
+
+    def test_sig_reads_the_tools_too(self):
+        self.put("tools/helper.py", "def assist(x):\n    return x\n")
+        self.assertIn("def assist(x)", self.main("sig", "helper")[1])
 
 
 if __name__ == "__main__":

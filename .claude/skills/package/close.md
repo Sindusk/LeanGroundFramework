@@ -9,6 +9,7 @@ Both only on the owner's approval.
    - removes the package's ledger line and block and drops other lines' waits on it; with `--delivered`, rewrites bare mentions in other blocks to that text, and prints any mention needing rewording ("XX-nnn's panel") with its fields;
    - adds the history row;
    - appends the package's section to `docs/archive/initiatives/<date>-<initiative>-record.md` (created on the Initiative's first package; a standalone package gets its own), the block quoted unedited, the steps and, from git, the files and test files it changed with their new tests, and indexes it in `docs/archive/README.md`.
+   Prose that names the package as history ("made in XX-nnn") stays as written.
 2. **Fill the record's TODOs** with Edit (the prose only; Read from the package's heading): "Rules in `DESIGN.md` <sections and what each holds>"; *What was built*: the rules, then each code change by file, then the fixtures; *Verification*: the test lines are filled in, so edit them only to add a number that matters; the manual check "all N steps passed: <what was seen>", with numbers from the log. A new record's header also has a TODO for the Initiative's rule sections.
 3. **Lessons:** at most three lines to `docs/agent-notes/lessons.md`, or none: `- XX-nnn: <what cost turns or went wrong, with a count> → <the change proposed>`. No skill, note or tool changes (`retro.md`).
 4. Commit `Close XX-nnn Name: approved`, body "The package leaves the ledger and its block joins the <Initiative> record." Push if CLAUDE.md says so.

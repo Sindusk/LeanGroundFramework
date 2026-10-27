@@ -4,7 +4,7 @@ The manual check covers only what a test can't: look, layout, feel, sound, a rea
 
 ## Fixtures
 
-Set up the state the checklist reads with a fixture the project already has (a seed, a script, a debug command, a test account), extended for this package; never steps the owner performs by hand to reach the starting state. A fixture holds exactly what the current checklist uses, and is safe to run again on a long-lived environment.
+Set up the state the checklist reads with a fixture the project already has (a seed, a script, a debug command, a test account), extended for this package; never steps the owner performs by hand to reach the starting state. A state one command sets (an empty scratch path) needs no fixture: that command is the checklist's first step. A fixture holds exactly what the current checklist uses, and is safe to run again on a long-lived environment.
 
 - **Debug controls never need ids or coordinates the tester must look up:** they act on what is selected, open or nearest.
 - Stations the checklist builds on and the tester keeps (accounts, sample data that later checks reuse) go in a setup step the fixture can run without clearing anything.
@@ -21,7 +21,7 @@ Then walk the checklist in these passes, before writing it:
 
 ## Hand over
 
-`python tools/docs.py status XX-nnn "built; awaiting the owner's check"`, then one commit with the fixtures: `XX-nnn Name: the fixtures; built`. Report what was done, what isn't, the tests that replaced checklist steps, and "Defaults I chose". For a screen or art, list **your readings** of the block's visual words, one line each, before the checklist, so the owner can redirect before the first launch. Then the checklist, holds and environment first, as short as the unchecked behaviour allows (rounds cost, not steps):
+`python tools/docs.py status XX-nnn "built; awaiting the owner's check"`, then one commit with the fixtures, if any: `XX-nnn Name: the fixtures; built` (else `XX-nnn Name: built`). Report what was done, what isn't, the tests that replaced checklist steps, and "Defaults I chose". For a screen or art, list **your readings** of the block's visual words, one line each, before the checklist, so the owner can redirect before the first launch. Then the checklist, holds and environment first, as short as the unchecked behaviour allows (rounds cost, not steps):
 
 - It starts with the fixture's command.
 - One action per step, then what the tester should see. Repeats of one action are one step. No arrows, no chained actions.

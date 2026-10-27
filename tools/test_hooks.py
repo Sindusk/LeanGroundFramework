@@ -21,7 +21,7 @@ import stop_check  # noqa: E402
 
 
 def git(repo, *args):
-    return subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True, check=True).stdout
+    return subprocess.run(["git", *args], cwd=repo, capture_output=True, encoding="utf-8", check=True).stdout
 
 
 class Repo(unittest.TestCase):

@@ -16,7 +16,7 @@ A routing map for implementation work: where each system's code, data and docs a
 
 ## Wiring (start here when adding anything)
 
-<!-- bootstrap: the entry point and every place a new thing must be registered (routes, registries, dependency injection, config, migrations), one bullet each as `- path: what is registered there.` Empty until the first code exists; the first package that adds wiring fills it in. -->
+<!-- bootstrap: the entry point and every place a new thing must be registered (routes, registries, dependency injection, config, migrations), one bullet each as `- path: what is registered there.`, from the stack, each marked "(planned)" until the package that writes it removes the mark. -->
 
 ## Layers
 

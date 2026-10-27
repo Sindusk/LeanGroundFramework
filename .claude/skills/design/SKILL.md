@@ -45,7 +45,7 @@ Each stage is its own commit with an ordinary subject (no package id unless a pa
 
 A round batches open questions into `design-questions.md` for a reader **outside the project** (the owner may answer with someone else).
 
-- Remove any previous round already consolidated, and extend the "Consolidated rounds" line under the `---`. Rounds still open stay; a new round goes after them.
+- A new round goes after the rounds still open. `record` removes a round once nothing in it is left to answer, and names it on the "Answered rounds" line.
 - Heading: `## Round N (YYYY-MM-DD): <what it settles>`, then a short paragraph saying what the round frees (which packages each question holds, which are built to the recommendation and need only a yes), in the order that frees the most work.
 - Group questions under `###` topic headings with a plain-language framing paragraph. Each question:
 
@@ -61,13 +61,13 @@ A round batches open questions into `design-questions.md` for a reader **outside
 * **(a) Short name:** ...
 * **(b) ...**
 
-**Recommendation:** (a). Why, the tradeoff against the others, and the cost of being wrong.
+**Recommendation:** (a). Why, and the tradeoff against the others. Cost of being wrong: …
 
 > **Response:**
 ```
 
 - Keep the glossary at the top current: add a term the round relies on, rename terms the design renamed.
-- Question numbers are DESIGN.md's; a round restates them, it doesn't mint new ones (raise first, or draft both and use `round add`).
+- Question numbers are DESIGN.md's; a round restates them, it doesn't mint new ones. Write the round as a draft and add it with `python tools/docs.py round add <draft>`: questions already raised are headed by their numbers (`#### Q12.`), new ones by placeholders with their `## Questions:` part.
 - Commit: `Design questions round N: <topic>`, body listing the questions.
 
 **Then put the round to the owner in chat; this is the default.** Print it with `python tools/docs.py round` and ask its questions directly, in its order: per question its number and plain question, its explanation (condensed from Explanation and Gap to read without the file), what it holds, the options by letter in a few words each, and the recommendation with its reason in a sentence. Ask for answers by number ("14 rec, 15 a, 16 b but …"). **Rounds are asked in order, one at a time.** **Before asking a round, bring it up to date** where an earlier answer changes a later question's framing or recommendation, so the file, the chat and the recorded decision agree.
@@ -79,7 +79,7 @@ A round batches open questions into `design-questions.md` for a reader **outside
 3. A partial answer: record the decided part, and keep or raise follow-ups.
 4. Commit: `Record round N's answers: questions …`, naming in the body any decision that overrules the recommendation.
 
-When the owner decides in chat and asks for the result applied at once ("go ahead as you suggest"), recording and consolidating are one commit: stage 4's steps, with the decision in the history row's Reason.
+When the owner decides in chat and asks for the result applied at once ("go ahead as you suggest"), recording and consolidating are one commit: stage 4's steps, with the decision in the history row's Reason. Run `record` only for questions in a round; a question never put in one goes straight to consolidation.
 
 ## 4. Consolidate (only when the owner asks)
 
