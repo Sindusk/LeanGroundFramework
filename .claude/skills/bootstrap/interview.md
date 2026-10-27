@@ -9,7 +9,7 @@ Ask these as a numbered list the owner answers by number. Skip any the conversat
 1. **The project:** its name, and a paragraph on what it is, who it is for, and what using it is like at its best. (→ `DESIGN.md` 1, `CLAUDE.md`, `README.md`)
 2. **Pillars and non-goals:** the three to six principles that settle arguments, and what the first release will not do. (→ 1)
 3. **Constraints:** licences, another product to stay clean of, platforms, privacy, a public repository, external services and their limits, saved data that must survive. (→ 2, `CLAUDE.md` "Always")
-4. **Stack:** language, framework, build and test tools, storage, where it runs; or "you pick". (→ 3, `baseline.json`, "Build and verify")
+4. **Stack:** language, framework, build and test tools, storage, where it runs; or "you pick". (→ 3, `leanground.json`, "Build and verify")
 5. **Systems:** the parts as the owner sees them, a sentence each. (→ 4)
 6. **Initiatives:** the first things a user or the owner should notice, in the order wanted. (→ `LEDGER.md` Undesigned)
 7. **Data, budgets, look:** where data lives; speed, size or cost limits; the visual direction and voice. (→ 5, 7, 9)

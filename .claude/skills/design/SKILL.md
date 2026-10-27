@@ -39,7 +39,7 @@ Each stage is its own commit with an ordinary subject (no package id unless a pa
 - A question belonging to an Initiative with a working document is asked there instead, and 6.2 gets a short note under a heading naming the document and the numbers.
 - Tuning numbers go to `DESIGN.md` section 11, not 6.2. A loose end that is not a design choice (docs disagree with code, a TODO) goes to 6.7.
 - Don't ask a raised question in chat on its own: point at its number; questions reach the owner through a round.
-- **Left for a collaborator** (one named in `tools/baseline.json`, answering with their own agent): leave the questions open and record no decision; add a note in 6.2 naming them and the packages they hold, and append "; questions N to M open, left for <name>" to the Initiative's ledger line. Write each to stand alone for an agent reading it cold.
+- **Left for a collaborator** (one named in `tools/leanground.json`, answering with their own agent): leave the questions open and record no decision; add a note in 6.2 naming them and the packages they hold, and append "; questions N to M open, left for <name>" to the Initiative's ledger line. Write each to stand alone for an agent reading it cold.
 
 ## 2. Write a round
 

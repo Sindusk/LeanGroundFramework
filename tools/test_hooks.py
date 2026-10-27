@@ -31,7 +31,7 @@ class Repo(unittest.TestCase):
         git(self.repo, "init", "-q", "-b", "main")
         git(self.repo, "config", "user.email", "test@example.com")
         git(self.repo, "config", "user.name", "Test")
-        self.put("tools/baseline.json", json.dumps({"source_roots": ["app"], "long_file_lines": 5, "branch": "main"}))
+        self.put("tools/leanground.json", json.dumps({"source_roots": ["app"], "long_file_lines": 5, "branch": "main"}))
         self.put(".gitignore", "ignored.txt\n")
         self.put("DESIGN.md", "# Design\n")
         self.put("app/main.py", "x = 1\n")

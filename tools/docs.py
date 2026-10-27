@@ -2,7 +2,7 @@
 
 Standard library only; read-only except `status`, `close`, `close-initiative`, `drop`, `record`, `raise`,
 `round add`, `history add` and `ledger insert` / `ledger replace`. Settings (the package ID prefix, the
-owner, budgets, source roots) come from tools/baseline.json. XX below stands for the project's prefix.
+owner, budgets, source roots) come from tools/leanground.json. XX below stands for the project's prefix.
 Run from the repository root:
 
     python tools/docs.py XX-nnn                        a Work Package: its ledger line, its block inside its
@@ -156,7 +156,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import docs_sig  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent
-CONFIG = "tools/baseline.json"
+CONFIG = "tools/leanground.json"
 DESIGN = "DESIGN.md"
 LEDGER = "LEDGER.md"
 WHERE = "docs/agent-notes/where-things-live.md"
@@ -171,7 +171,7 @@ PLUGIN = "tools/project_docs.py"
 # Read as records, not routes: their citations are of their own day, so check never follows them.
 RECORDS = (HISTORY,)
 # Describes the kit's placeholders, so it may name them once bootstrapped, as may every core file.
-KIT_DOCS = ("BASELINE.md",)
+KIT_DOCS = ("LEANGROUND.md",)
 
 LEDGER_GROUPS = ("Work-Ready", "Designed", "Undesigned")
 INITIATIVES_HEADING = "Initiatives"
@@ -206,7 +206,7 @@ _configs = {}
 
 
 def config(repo=REPO):
-    """tools/baseline.json over DEFAULTS, read once per repository."""
+    """tools/leanground.json over DEFAULTS, read once per repository."""
     key = Path(repo).resolve()
     if key not in _configs:
         path = key / CONFIG
@@ -1195,7 +1195,7 @@ def find_problems(repo, files, sources=()):
 # Files an agent loads without asking: CLAUDE.md, AGENTS.md and every skill's description in each session,
 # a SKILL.md when its skill is invoked, a stage file beside it when its stage starts, an agent definition
 # when its subagent starts. Every later turn resends them, so check fails on one over its budget. Budgets
-# live in tools/baseline.json; trim before raising one, and raising one is the owner's call.
+# live in tools/leanground.json; trim before raising one, and raising one is the owner's call.
 SKILLS = ".claude/skills/"
 AGENTS = ".claude/agents/"
 UNLOADED = ("why.md",)  # read only to challenge a rule, never to follow one
@@ -1332,7 +1332,7 @@ def show_context(repo):
 
 
 def is_core(repo, name):
-    """A file the kit owns (tools/baseline.json's core list): its examples cite no project's design."""
+    """A file the kit owns (tools/leanground.json's core list): its examples cite no project's design."""
     return any(name == entry or (entry.endswith("/") and name.startswith(entry)) for entry in config(repo).get("core", []))
 
 

@@ -1,12 +1,12 @@
-# Baseline
+# Lean Ground Framework
 
 A starting kit for a project built entirely through AI agents: a routing `CLAUDE.md`, a design document and a ledger, working agreements, a docs tool that reads one block at a time, and skills for designing and building Work Packages. It is extracted from Azothos (ProjectArcanum), PolarityFracture and CKReview.
 
 **The kit is complete and has had one dry run.** Its phases:
 
-1. **Scaffold:** layout, `AGENTS.md`, `CLAUDE.md`, `DESIGN.md`, `LEDGER.md`, history, questions, agent notes, `tools/baseline.json`. Done.
+1. **Scaffold:** layout, `AGENTS.md`, `CLAUDE.md`, `DESIGN.md`, `LEDGER.md`, history, questions, agent notes, `tools/leanground.json`. Done.
 2. **Tooling:** `tools/docs.py` (with `tools/docs_sig.py`, the `sig` adapters for Java, Python and TypeScript/JavaScript, and a `tools/project_docs.py` plugin hook); the hooks in `.claude/settings.json` (`tools/search_gate.py`, `tools/edit_gate.py`, `tools/stop_check.py`); `.githooks/commit-msg` (`tools/commit_msg.py`); tests in `tools/test_docs.py` and `tools/test_hooks.py`. Done.
-3. **Skills and agents:** `.claude/skills/` `package` (cut, build, handover, close, retro, dispatch for oversized packages, `why.md`), `design` (raise, round, record, consolidate, triage, working documents), `feedback` (loose notes, sorted by size) and `bootstrap` (interview, adopting existing code); `.claude/agents/` `chunk` and `fix`. Budgets in `tools/baseline.json`, enforced by `docs.py check`. Done.
+3. **Skills and agents:** `.claude/skills/` `package` (cut, build, handover, close, retro, dispatch for oversized packages, `why.md`), `design` (raise, round, record, consolidate, triage, working documents), `feedback` (loose notes, sorted by size) and `bootstrap` (interview, adopting existing code); `.claude/agents/` `chunk` and `fix`. Budgets in `tools/leanground.json`, enforced by `docs.py check`. Done.
 4. **Dry run:** a throwaway project bootstrapped and one package taken from cut to close; the cost measured and the kit fixed. Done (below).
 
 ## The dry run (2026-10-27)
@@ -29,28 +29,28 @@ The package passed its five-step manual check first time. The run's findings wer
 Copy everything except `.git` into the new project's folder, then open a session there and say "bootstrap". From PowerShell:
 
 ```powershell
-robocopy C:\Users\sinis\Documents\Baseline <new project folder> /E /XD .git
+robocopy C:\Users\sinis\Documents\LeanGroundFramework <new project folder> /E /XD .git
 ```
 
-The bootstrap skill runs `git init` if needed and `git config core.hooksPath .githooks`, interviews the owner, replaces the `{{…}}` placeholders, fills every `<!-- bootstrap: … -->` comment in the documents (then deletes the comment), writes `tools/baseline.json`'s project fields, seeds the ledger's Undesigned group, runs `python tools/docs.py check` and makes the first commit. `check` refuses a placeholder or bootstrap comment left behind once `baseline.json` says `"bootstrapped": true`.
+The bootstrap skill runs `git init` if needed and `git config core.hooksPath .githooks`, interviews the owner, replaces the `{{…}}` placeholders, fills every `<!-- bootstrap: … -->` comment in the documents (then deletes the comment), writes `tools/leanground.json`'s project fields, seeds the ledger's Undesigned group, runs `python tools/docs.py check` and makes the first commit. `check` refuses a placeholder or bootstrap comment left behind once `leanground.json` says `"bootstrapped": true`.
 
 ## Core files and project files
 
-**Core** files are the kit's: a project never edits them, and upgrading the project replaces them with Baseline's newer copy. A project needing different behaviour adds a project file beside them (a `tools/project_docs.py` command, a project skill) rather than editing core. **Project** files start as skeletons and belong to the project once bootstrapped; an upgrade never touches them. `tools/baseline.json` lists the core files under `"core"`.
+**Core** files are the kit's: a project never edits them, and upgrading the project replaces them with the framework's newer copy. A project needing different behaviour adds a project file beside them (a `tools/project_docs.py` command, a project skill) rather than editing core. **Project** files start as skeletons and belong to the project once bootstrapped; an upgrade never touches them. `tools/leanground.json` lists the core files under `"core"`.
 
 | File | Kind |
 |---|---|
-| `BASELINE.md`, `AGENTS.md` | core |
+| `LEANGROUND.md`, `AGENTS.md` | core |
 | `tools/docs.py`, `tools/docs_sig.py`, the hooks' scripts, their tests, `.gitattributes` | core |
 | `.claude/skills/{package,design,feedback,bootstrap}/`, `.claude/agents/{chunk,fix}.md`, `.githooks/` | core |
 | `CLAUDE.md`, `DESIGN.md`, `LEDGER.md`, `design-history.md`, `design-questions.md` | project |
 | `docs/agent-notes/*`, `docs/archive/README.md` | project |
-| `tools/baseline.json` (its project fields), `tools/project_docs.py` | project |
+| `tools/leanground.json` (its project fields), `tools/project_docs.py` | project |
 | `.claude/settings.json`: its hooks are the kit's, its permissions the project's | both |
 
 ## Settings
 
-`tools/baseline.json` holds what the tools and skills need to know about the project:
+`tools/leanground.json` holds what the tools and skills need to know about the project:
 
 - `project`, `prefix`, `owner`, `collaborators`, `branch`: names the documents and tools use; `prefix` builds package ids (`AZ-104`).
 - `bootstrapped`: false until the bootstrap skill finishes; then `check` refuses any placeholder left.
@@ -71,7 +71,7 @@ The bootstrap skill runs `git init` if needed and `git config core.hooksPath .gi
 
 The gates answer Claude Code with exit 2 and Codex with its structured deny, so one copy serves both.
 
-**Improvements flow back.** When a project's retro changes a core file, the change is made in Baseline too, so the next project starts with it. Project-specific lessons stay in the project.
+**Improvements flow back.** When a project's retro changes a core file, the change is made in the framework too, so the next project starts with it. Project-specific lessons stay in the project.
 
 ## Placeholders
 

@@ -191,7 +191,7 @@ class Repo(unittest.TestCase):
             "DESIGN.md": DESIGN, "LEDGER.md": LEDGER, "design-history.md": HISTORY, "design-questions.md": ROUNDS,
             "docs/archive/README.md": ARCHIVE_INDEX, "docs/agent-notes/where-things-live.md": WHERE,
             "CLAUDE.md": "# Instructions\n\nRead `DESIGN.md` section 4.\n",
-            "tools/baseline.json": json.dumps(CONFIG),
+            "tools/leanground.json": json.dumps(CONFIG),
         }
         for name, text in {**base, **self.files}.items():
             self.put(name, text)
@@ -210,7 +210,7 @@ class Repo(unittest.TestCase):
         git(self.repo, "commit", "-q", "--allow-empty", "-m", message)
 
     def configure(self, **changes):
-        self.put("tools/baseline.json", json.dumps({**CONFIG, **changes}))
+        self.put("tools/leanground.json", json.dumps({**CONFIG, **changes}))
         docs._configs.clear()
 
     def problems(self):
@@ -330,7 +330,7 @@ class Check(Repo):
 
     def test_placeholders_once_bootstrapped(self):
         self.put("notes.md", "# {{PROJECT}}\n\n<!-- bootstrap: fill this -->\n")
-        self.put("BASELINE.md", "# Kit\n\n`{{PREFIX}}` is the prefix.\n")
+        self.put("LEANGROUND.md", "# Kit\n\n`{{PREFIX}}` is the prefix.\n")
         self.put(".claude/skills/kit/SKILL.md", "# Kit skill\n\nFills `{{PROJECT}}`.\n")
         self.configure(core=["tools/docs.py", ".claude/skills/kit/"], budgets={"CLAUDE.md": 200,
                                                                               ".claude/skills/kit/SKILL.md": 100})

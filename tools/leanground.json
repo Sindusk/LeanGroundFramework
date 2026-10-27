@@ -1,5 +1,5 @@
 {
-  "baseline_version": "0.1.0",
+  "leanground_version": "0.1.0",
   "bootstrapped": false,
   "project": "{{PROJECT}}",
   "prefix": "{{PREFIX}}",
@@ -41,7 +41,7 @@
     ".claude/agents/fix.md": 650
   },
   "core": [
-    "BASELINE.md",
+    "LEANGROUND.md",
     "AGENTS.md",
     "tools/docs.py",
     "tools/docs_sig.py",

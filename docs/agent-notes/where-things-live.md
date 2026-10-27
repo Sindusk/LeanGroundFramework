@@ -12,7 +12,7 @@ A routing map for implementation work: where each system's code, data and docs a
 - `docs/archive/`: delivery records and executed plans. Not authoritative.
 - `docs/agent-notes/`: how to work here (index in its `README.md`).
 - `tools/docs.py`: prints one block of these documents, finds code (`where`, `sig`) and checks that citations, the ledger and budgets hold; `python tools/docs.py help` lists its forms. `tools/project_docs.py`, when present, adds this project's own commands to it.
-- `tools/baseline.json`: the project's settings for the kit (ID prefix, owner, commands, budgets) and the list of core files.
+- `tools/leanground.json`: the project's settings for the kit (ID prefix, owner, commands, budgets) and the list of core files.
 
 ## Wiring (start here when adding anything)
 

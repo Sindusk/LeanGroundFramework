@@ -1,5 +1,5 @@
 """Stop hook (.claude/settings.json): reminds the agent of tracked changes it has not committed, and of commits
-it has not pushed when tools/baseline.json says leave to commit is leave to push.
+it has not pushed when tools/leanground.json says leave to commit is leave to push.
 
 Prints a systemMessage for the harness, or {} when there is nothing to remind. Standard library only; anything
 unexpected prints {}.
@@ -19,7 +19,7 @@ def git(repo, *args):
 def reminder(repo):
     """The reminder for repo's state, or None."""
     try:
-        config = json.loads((Path(repo) / "tools" / "baseline.json").read_text(encoding="utf-8"))
+        config = json.loads((Path(repo) / "tools" / "leanground.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         config = {}
     found = []

@@ -6,7 +6,7 @@ argument-hint: "[XX-nnn | cut <Initiative> | close XX-nnn | retro]"
 
 # package
 
-How a Work Package is cut, built and closed. `XX` stands for the project's package prefix (`tools/baseline.json`). This skill and the stage files beside it are the procedure's one home; `working-agreements.md` "Initiatives and Work Packages" holds the ledger's format, and `DESIGN.md` 6's opening (`python tools/docs.py 6 --own`) the concepts. **Docs, tooling, cleanups and fixes are just work: no package, no id, no ledger line.**
+How a Work Package is cut, built and closed. `XX` stands for the project's package prefix (`tools/leanground.json`). This skill and the stage files beside it are the procedure's one home; `working-agreements.md` "Initiatives and Work Packages" holds the ledger's format, and `DESIGN.md` 6's opening (`python tools/docs.py 6 --own`) the concepts. **Docs, tooling, cleanups and fixes are just work: no package, no id, no ledger line.**
 
 **Read a stage file only when you reach its stage:** `cut.md` (cut an Initiative), `dispatch.md` (a build too large for one context), `handover.md` (the manual check: read it before writing fixtures, which come before the first build), `close.md` (close a package or an Initiative), `retro.md` (only when the owner asks). A bracketed id names the incident behind a step, in `why.md`: read it only to challenge the step.
 

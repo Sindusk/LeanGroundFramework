@@ -28,7 +28,7 @@ How work runs in this repository. `CLAUDE.md` routes here; read the section your
 
 - **Open design questions live in `DESIGN.md` 6.2**, with the idea backlog, under permanent numbers that other documents cite (the next free number is stated there). A question that is answered is removed at consolidation, not struck through; git keeps its text. Never renumber the rest. Numeric tuning questions live in `DESIGN.md` section 11.
 - **Record questions, don't ask them in chat.** A design choice found during any work is written into 6.2 as a numbered question and cited from the design text and ledger lines; the reply only points at the numbers. A design round is the exception: once written, its questions are put to the owner in chat (the design skill). Otherwise only non-design housekeeping, such as whether to delete a file, is asked in chat.
-- **Questions may be left for a collaborator** named in `tools/baseline.json`, who answers with their own agent. When the owner says so, leave the questions open and record no decision, say so in a note in 6.2 and as "left for <name>" on the Initiative's ledger line, and write each question to stand alone (gap, candidates, recommendation, cost of being wrong) for an agent reading it cold.
+- **Questions may be left for a collaborator** named in `tools/leanground.json`, who answers with their own agent. When the owner says so, leave the questions open and record no decision, say so in a note in 6.2 and as "left for <name>" on the Initiative's ledger line, and write each question to stand alone (gap, candidates, recommendation, cost of being wrong) for an agent reading it cold.
 - **Known issues live in `DESIGN.md` 6.7**, not in session handoffs. When a session finds a loose end it is not fixing (documentation that disagrees with the code, a TODO, a harmless warning, a check not yet done), add it there. When one is fixed, remove its line.
 
 ## Writing documents
@@ -49,7 +49,7 @@ How work runs in this repository. `CLAUDE.md` routes here; read the section your
 
 ## Build and verify
 
-<!-- bootstrap: each command from tools/baseline.json "commands", one bullet each: what it runs, how long it takes, how to read its result quietly (a filter that prints only the pass/fail lines), and where the full log is. Then the test layers: what a unit test covers, what an integration or end-to-end test covers, where each lives, and what must never be faked. -->
+<!-- bootstrap: each command from tools/leanground.json "commands", one bullet each: what it runs, how long it takes, how to read its result quietly (a filter that prints only the pass/fail lines), and where the full log is. Then the test layers: what a unit test covers, what an integration or end-to-end test covers, where each lives, and what must never be faked. -->
 - `python tools/docs.py check`: every design section cited in the live documents and sources resolves, the ledger agrees with its blocks, every question a line names exists, no example names a real package id (write `{{PREFIX}}-nnn`), and each file an agent loads unasked is within its token budget (`python tools/docs.py budget`). Run it after changing section numbers, the ledger, a package block, `CLAUDE.md` or a skill. `python -m unittest tools/test_docs.py tools/test_hooks.py` tests the kit's tools; run it after changing one. A command only this project needs goes in `tools/project_docs.py`, never in `tools/docs.py`, which the kit replaces on upgrade.
 
 ## Manual checks
@@ -68,7 +68,7 @@ What a test can't show (look, feel, layout, sound, a real device, a third-party 
 
 - **A skill** is `.claude/skills/<name>/SKILL.md` with `name`, a `description` (what it does, then "Use when …" with the words that should trigger it) and, if it takes one, an `argument-hint`. Its body is a router: the steps every run needs, then which stage file to read at which stage. Stage files sit beside it and are read only at their stage.
 - **Rules, not stories.** A rule learned from an incident carries the package id in brackets (`[{{PREFIX}}-nnn]`); the story, if worth keeping, goes in the skill's `why.md`, which is read only to challenge a rule.
-- **Budgets.** Every file an agent loads unasked (`CLAUDE.md`, skill files, agent definitions, skill descriptions) has a token budget in `tools/baseline.json`, checked by `check`. Trim before raising one; a raise states its reason in the commit body.
+- **Budgets.** Every file an agent loads unasked (`CLAUDE.md`, skill files, agent definitions, skill descriptions) has a token budget in `tools/leanground.json`, checked by `check`. Trim before raising one; a raise states its reason in the commit body.
 - **Prefer a tool to prose.** A step an agent does the same way every time becomes a `tools/docs.py` command, a hook or a script bundled with its skill in `.claude/skills/<name>/tools/`: deterministic, read-only unless named otherwise, with a header comment giving its purpose and exact usage. A tool that condenses a large input audits its own losses.
 - **Subagents** are briefed with the `docs.py` commands they need and the `file:line` sites already found, not files to read, and return a short report in a fixed shape.
 

@@ -4,11 +4,11 @@ Agents search five ways (the Grep tool, git grep, grep, Select-String, Get-Conte
 long source file whole where `docs.py sig` and a range would do. This refuses, with the route to use:
 
 - Get-Content, Select-String, cat or a grep that starts a command, aimed at tracked documents or source
-  (docs/, tools/, .claude/, the source roots in tools/baseline.json, and *.md, *.json, *.py and the
+  (docs/, tools/, .claude/, the source roots in tools/leanground.json, and *.md, *.json, *.py and the
   languages `sig` reads): use the Grep tool or `git grep`, and Read or `tools/docs.py` to read. Logs, build
   output and anything after a pipe pass.
 - Read of a source file in a language `sig` reads, inside the repository and longer than long_file_lines
-  (tools/baseline.json) with no limit: `docs.py sig`, then a range.
+  (tools/leanground.json) with no limit: `docs.py sig`, then a range.
 
 Standard library only. Exit 2 refuses (its stderr is the reason); Codex gets its structured deny instead;
 anything unexpected exits 0.
@@ -34,7 +34,7 @@ ROUTE = ("Search tracked files with the Grep tool or `git grep`; read them with 
 
 
 def settings(repo):
-    path = Path(repo) / "tools" / "baseline.json"
+    path = Path(repo) / "tools" / "leanground.json"
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):

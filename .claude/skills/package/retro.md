@@ -7,4 +7,4 @@ Run only when the owner asks, in a session of its own, about every five closed p
 3. **Change** the stage file, `where-things-live.md`, `tools/project_docs.py` or a hook. Rules, not stories: the step gets a bracketed package id and `why.md` the story. Prefer a mechanical check or a docs command over prose; trim before raising a budget (`python tools/docs.py budget`).
 4. **Verify:** `python -m unittest tools/test_docs.py tools/test_hooks.py` if a tool changed, then `python tools/docs.py check`.
 5. **Record:** remove the lessons acted on or dropped, and rewrite "Last retro" with today's date and the step 1 figures. Commit `Retro: <what changed>`, push if CLAUDE.md says so.
-6. **Back to the kit:** a change to a core file (`tools/baseline.json` lists them) that would serve every project is offered to the owner for the Baseline kit too, as a one-line summary with the file and the change.
+6. **Back to the kit:** a change to a core file (`tools/leanground.json` lists them) that would serve every project is offered to the owner for the Lean Ground Framework too, as a one-line summary with the file and the change.

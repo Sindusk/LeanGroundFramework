@@ -2,7 +2,7 @@
 that made the commit, as CLAUDE.md "Commits" says.
 
 `git config core.hooksPath .githooks` turns it on (the bootstrap skill does). Set "commit_trailer": false in
-tools/baseline.json to turn the trailer rule off, and "commit_body": true to require a body as well.
+tools/leanground.json to turn the trailer rule off, and "commit_body": true to require a body as well.
 Standard library only.
 """
 
@@ -38,7 +38,7 @@ def main(args):
         return 1
     repo = Path(__file__).resolve().parent.parent
     try:
-        config = json.loads((repo / "tools" / "baseline.json").read_text(encoding="utf-8"))
+        config = json.loads((repo / "tools" / "leanground.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         config = {}
     message = Path(args[0]).read_text(encoding="utf-8", errors="replace")
