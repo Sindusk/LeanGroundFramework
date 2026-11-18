@@ -6,6 +6,7 @@ A starting kit for a project built entirely through AI agents: a routing `CLAUDE
 
 1. **Scaffold:** layout, `AGENTS.md`, `CLAUDE.md`, `DESIGN.md`, `LEDGER.md`, history, questions, agent notes, `tools/leanground.json`. Done.
 2. **Tooling:** `tools/docs.py` (with `tools/docs_sig.py`, the `sig` adapters for Java, Python and TypeScript/JavaScript, and a `tools/project_docs.py` plugin hook); the hooks in `.claude/settings.json` (`tools/search_gate.py`, `tools/edit_gate.py`, `tools/stop_check.py`); `.githooks/commit-msg` (`tools/commit_msg.py`) and `.githooks/pre-commit` (`tools/pre_commit.py`); tests in `tools/test_docs.py` and `tools/test_hooks.py`. Done.
+5. **Verify and commit tools:** `tools/verify.py`, the package gate: runs `verify_steps` in order, each command's output to a log under `working/verify/`, one console line per step, stops at the first failure naming the steps not run, and writes `working/verify/summary.md` (overwritten at the start of every run, a refused one included), which is read in place of any log; `--resume` reruns from the failed step, `--only <name>` one step, `--list` the steps. `tools/commit.py -F <message file> -- <path> …` commits exactly the named paths as the working tree holds them through a temporary index, so another session's staged or unstaged work never reaches the commit, and runs the commit-msg and pre-commit checks itself; `--push` pushes when `push_on_commit` is set. Tests in `tools/test_verify.py` and `tools/test_commit.py`. Each tool's header gives its exact usage and exit codes.
 3. **Skills and agents:** `.claude/skills/` `lg-package` (cut, build in one session, handover, close, retro, dispatch for oversized packages, `why.md`), `lg-design` (raise, round, record, consolidate, triage, working documents), `lg-feedback` (loose notes, sorted by size) and `lg-bootstrap` (interview, adopting existing code); `.claude/agents/` `chunk`, `fix` and `dig` (a read-only log reader). Budgets in `tools/leanground.json`, enforced by `docs.py check`. Done.
 4. **Dry run:** a throwaway project bootstrapped and one package taken from cut to close; the cost measured and the kit fixed. Done (below).
 
@@ -41,7 +42,7 @@ The lg-bootstrap skill runs `git init` if needed and `git config core.hooksPath 
 | File | Kind |
 |---|---|
 | `LEANGROUND.md`, `AGENTS.md` | core |
-| `tools/docs.py`, `tools/docs_sig.py`, the hooks' scripts, their tests, `.gitattributes` | core |
+| `tools/docs.py`, `tools/docs_sig.py`, `tools/verify.py`, `tools/commit.py`, the hooks' scripts, their tests, `.gitattributes` | core |
 | `.claude/skills/lg-{package,design,feedback,bootstrap}/`, `.claude/agents/{chunk,fix,dig}.md`, `.githooks/` | core |
 | `CLAUDE.md`, `DESIGN.md`, `LEDGER.md`, `design-history.md`, `design-questions.md` | project |
 | `docs/agent-notes/*`, `docs/archive/README.md`, `docs/investigations/README.md` | project |
@@ -54,7 +55,7 @@ The lg-bootstrap skill runs `git init` if needed and `git config core.hooksPath 
 
 - `project`, `prefix`, `owner`, `collaborators`, `branch`: names the documents and tools use; `prefix` builds package ids (`AZ-104`).
 - `bootstrapped`: false until the lg-bootstrap skill finishes; then `check` refuses any placeholder left.
-- `push_on_commit`, `commit_trailer`, `commit_body`: the commit rules the Stop and commit-msg hooks enforce.
+- `push_on_commit`, `commit_trailer`, `commit_body`: the commit rules the Stop and commit-msg hooks and `tools/commit.py` enforce; `commit.py --push` pushes only when `push_on_commit` is true.
 - `shell`: the primary shell, for the documents' command examples.
 - `source_roots`: where the code lives, for `sig`, `close`'s record and `check`'s citations; empty means every tracked file.
 - `long_file_lines`: past this, the search gate refuses a whole Read of a source file.
@@ -64,7 +65,12 @@ The lg-bootstrap skill runs `git init` if needed and `git config core.hooksPath 
 - `handoff_past`: every session's context ceiling, which `docs.py context` reports against; past it, the session finishes the item in hand and gives the owner a paste-ready prompt for a new session. 200,000 by default.
 - `retro_after_lessons`: past this many lessons queued in `docs/agent-notes/lessons.md`, `check` notes that a retro is due (a notice, never a failure); 15 by default.
 - `test_report`: the JUnit-style XML report the test runner writes (a path, a folder or a glob), read by `docs.py failures`; empty until the project sets one.
-- `commands`: `build` compiles or bundles, `test` runs the unit tests, `check_changed` runs the typecheck, tests and lint for only what the working tree touches, `verify` is the whole gate a package passes before its handover (build, tests, lint, `docs.py check`), `run` starts the app for a manual check, `stop` stops what a session started (dev servers, watchers). Each is empty until the project has one. `working-agreements.md` "Build and verify" gives each with its filter; agents read them there.
+- `verify_steps`: the package gate `tools/verify.py` runs, in order: each `{"name": "test", "command": "…"}` with an optional `"max_minutes"`, past which the step is stopped and fails. A command is a string run by the platform's shell from the repository root (cmd on Windows, sh elsewhere) or a list run as it stands. Empty until the project sets them, and `verify.py` refuses an empty list.
+- `verify_max_minutes`: the whole gate's budget; a run past it fails, naming the step it stopped. 0, the default, is no limit.
+- `policies`: the owner's standing answers, set at bootstrap, which the lg-package skill reads from the last line of `python tools/docs.py XX-nnn` (and of an Initiative's print), never from this file; `check` reports any other value.
+  - `forks`: `"ask"` (the default) asks at every fork; `"decide"` takes the recommendation where a fork's answers cost differently, re-cuts an oversized package the same way, records each choice with its alternatives under the pending note's Defaults, and leads the report with them.
+  - `close`: `"on_approval"` (the default) closes on the owner's approval; `"on_build"` makes "build XX-nnn" the approval to build, verify, commit, close, report and stop, held open only by a named reviewer, a failure the builder cannot fix, or a manual check the owner did not waive.
+- `commands`: `build` compiles or bundles, `test` runs the unit tests, `check_changed` runs the typecheck, tests and lint for only what the working tree touches, `verify` is the whole gate a package passes before its handover, `python tools/verify.py` once `verify_steps` holds the build, tests, lint and `docs.py check`, `run` starts the app for a manual check, `stop` stops what a session started (dev servers, watchers). Each is empty until the project has one. `working-agreements.md` "Build and verify" gives each with its filter; agents read them there.
 - `budgets`: tokens per file an agent loads unasked. `core`: the kit's files (see above).
 
 ## Hooks

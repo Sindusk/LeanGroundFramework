@@ -1,16 +1,19 @@
 """Prints one block of the project's documents, so an agent reads what its task needs and no more.
 
 Standard library only; read-only except `status`, `close`, `close-initiative`, `drop`, `record`, `raise`,
-`round add`, `history add`, `lesson add` and `ledger insert` / `ledger replace`. Settings (the package ID prefix, the
-owner, budgets, source roots) come from tools/leanground.json. XX below stands for the project's prefix.
+`round add`, `history add`, `lesson add`, `ledger insert` / `ledger replace`, and `note` and `brief`, which write
+only under working/pending/ (gitignored). Settings (the package ID prefix, the owner, budgets, source roots, the
+owner's policies) come from tools/leanground.json. XX below stands for the project's prefix.
 Run from the repository root:
 
     python tools/docs.py XX-nnn                        a Work Package: its ledger line, its block inside its
-                                                       Initiative's, the open questions it names, and a menu
-                                                       of the design sections and packages it cites
+                                                       Initiative's, the open questions it names, a menu of
+                                                       the design sections and packages it cites, and a last
+                                                       line naming each owner policy not at its default
     python tools/docs.py help close where              only those commands' usage lines (a word no command
                                                        starts with: the lines mentioning it); help alone, all
-    python tools/docs.py "Search Filters"              an Initiative: its ledger lines and its block
+    python tools/docs.py "Search Filters"              an Initiative: its ledger lines and its block, and the
+                                                       same policy line
     python tools/docs.py 4.2.1                         a DESIGN.md section, its subsections included; one over
                                                        section_cap tokens (5,000 by default) with subsections
                                                        prints its own text and its subsections' menu instead
@@ -73,7 +76,28 @@ Run from the repository root:
     python tools/docs.py lesson add "<line>"           appends one line to docs/agent-notes/lessons.md (a "- "
                                                        put before it if missing), never rewriting the file, and
                                                        prints how many lessons wait for a retro
-    python tools/docs.py status XX-nnn being built     writes a package's status on its ledger line, then checks;
+    python tools/docs.py note XX-nnn                   the package's pending note, working/pending/XX-nnn/note.md:
+                                                       made with its headings (Rulings, Defaults, Not done,
+                                                       Dispatch, Lessons) if absent; prints its path
+    python tools/docs.py note XX-nnn defaults "<line>" [--date 2026-10-23]
+                                                       appends one line under a heading; a ruling or default
+                                                       with no date gets "(owner, <date>)" or "(default,
+                                                       <date>)", a default must name its alternatives, the
+                                                       dispatch line replaces the last, lessons stop at three
+    python tools/docs.py brief XX-nnn 2 [--force]      writes working/pending/XX-nnn/chunk-2-brief.md from that
+                                                       folder's plan.md (dispatch.md's format) and note.md: the
+                                                       package's block, the rule sections as a command, the
+                                                       note's rulings and defaults, chunk 2's line with its
+                                                       done-when tests and falsifications, its tagged seams,
+                                                       a sig line per consumed name and the files of a commit
+                                                       it copies, each earlier report's files and Produced
+                                                       parts whole and its Not done as deviations, and the
+                                                       files not its own; each listing capped at 40 lines.
+                                                       Prints the path and its tokens. 2b: a finisher's brief,
+                                                       chunk 2's Not done on top. Refuses, writing nothing, a
+                                                       plan row it cannot place, a missing plan, chunk or
+                                                       report, and an existing brief without --force
+    python tools/docs.py status XX-nnn being built    writes a package's status on its ledger line, then checks;
                                                        a status the ledger check would fault is not written
     python tools/docs.py close XX-nnn [--steps 14] [--date 2026-10-23]
                        [--delivered "the delivered search index (4.2.1)"]
@@ -84,9 +108,12 @@ Run from the repository root:
                                                        appends its section to its record (created if new) with
                                                        the block quoted unedited, the manual check's passing
                                                        steps and (from its own commits) the files it changed
-                                                       and each test file with its new tests as words, and
-                                                       TODOs for the rest of the prose; adds it to the archive
-                                                       index, then checks
+                                                       and each test file with its new tests as words, its
+                                                       build commit, and TODOs for the rest of the prose; adds
+                                                       it to the archive index, then checks. With a pending
+                                                       note, its rulings, defaults, not done and dispatch line
+                                                       go into the record and its lessons into the queue; a
+                                                       line under any other heading is printed, not lost
     python tools/docs.py close-initiative "Search Filters" [--date 2026-10-23]
                                                        closes an approved Initiative whose packages have all
                                                        closed: removes its line, Contents entry and block, drops
@@ -185,6 +212,8 @@ RECORDS_DIR = "docs/archive/initiatives"
 WORKING = "docs/initiatives/"
 PLUGIN = "tools/project_docs.py"
 LESSONS = "docs/agent-notes/lessons.md"
+# Gitignored scratch a session writes (a package's note and briefs, a verification summary): named, never tracked.
+SCRATCH = "working/"
 
 # Read as records, not routes: their citations are of their own day, so check never follows them.
 RECORDS = (HISTORY,)
@@ -212,7 +241,12 @@ DEFAULTS = {
     "handoff_past": 200_000,
     "retro_after_lessons": 15,
     "test_report": "",
+    # The owner's standing answers the package skill reads from the package print, never from this file.
+    "policies": {"forks": "ask", "close": "on_approval"},
 }
+# Each policy's values, its default first: forks "decide" takes a fork's recommendation as a recorded default;
+# close "on_build" makes the owner's "build" the approval to close.
+POLICIES = {"forks": ("ask", "decide"), "close": ("on_approval", "on_build")}
 
 
 def tokens(text):
@@ -237,6 +271,17 @@ def config(repo=REPO):
         data = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
         _configs[key] = {**DEFAULTS, **data}
     return _configs[key]
+
+
+def policies(repo=REPO):
+    """The owner's policies, each one the file leaves out at its default."""
+    return {**DEFAULTS["policies"], **(config(repo).get("policies") or {})}
+
+
+def policy_line(repo=REPO):
+    """One line naming each policy not at its default, or None: the package print's last line."""
+    changed = [f"{name}: {value}" for name, value in policies(repo).items() if value != DEFAULTS["policies"].get(name)]
+    return f"== Owner policies not at their default: {'; '.join(changed)}." if changed else None
 
 
 class Ids:
@@ -706,7 +751,20 @@ def section_menu_line(design, number):
     return line
 
 
-def show_package(ledger, design, package_id):
+def package_view(ledger, block):
+    """A package's block inside its Initiative's, the other packages' blocks left out: (start, end, text, the
+    left-out siblings)."""
+    doc = ledger.doc
+    start, end = ledger.initiatives[block["initiative"]]
+    siblings = [b for b in ledger.blocks.values() if b["initiative"] == block["initiative"] and b is not block]
+    sibling_lines = set()
+    for sibling in siblings:
+        sibling_lines.update(range(sibling["line"], block_lines(doc, sibling["line"])[1] + 1))
+    keep = [n for n in range(start, end + 1) if n not in sibling_lines]
+    return start, end, "\n".join(doc.lines[n - 1] for n in keep), siblings
+
+
+def show_package(ledger, design, package_id, policy=None):
     ids = ledger.ids
     block = ledger.blocks.get(package_id)
     line = ledger.package(package_id)
@@ -728,13 +786,7 @@ def show_package(ledger, design, package_id):
         print(f"{package_id} has a ledger line and no block; run python tools/docs.py check.")
         return 1
 
-    start, end = ledger.initiatives[block["initiative"]]
-    siblings = [b for b in ledger.blocks.values() if b["initiative"] == block["initiative"] and b is not block]
-    sibling_lines = set()
-    for sibling in siblings:
-        sibling_lines.update(range(sibling["line"], block_lines(doc, sibling["line"])[1] + 1))
-    keep = [n for n in range(start, end + 1) if n not in sibling_lines]
-    text = "\n".join(doc.lines[n - 1] for n in keep)
+    start, end, text, siblings = package_view(ledger, block)
     print(f"== {package_id} {block['name']}, in {block['initiative']}  {LEDGER}:{start}-{end}  ~{tokens(text):,} tokens")
     if siblings:
         print("   Left out, the Initiative's other packages: "
@@ -778,10 +830,12 @@ def show_package(ledger, design, package_id):
             else:
                 print(f"  {name:<8} delivered (no ledger line)")
         print()
+    if policy:
+        print(policy)
     return 0
 
 
-def show_initiative(ledger, name):
+def show_initiative(ledger, name, policy=None):
     doc = ledger.doc
     lines = ledger.item_lines(name)
     if lines:
@@ -791,6 +845,8 @@ def show_initiative(ledger, name):
             print(doc.lines[n - 1])
         print()
     print_block(doc, *ledger.initiatives[name], name)
+    if policy:
+        print(policy)
     return 0
 
 
@@ -1143,7 +1199,7 @@ def source_files(repo, sources=None):
 # The commands main answers, by first word; test_docs checks the usage lines above name no other.
 DOCS_COMMANDS = ("help", "check", "budget", "context", "failures", "lesson", "status", "close", "close-initiative",
                  "drop", "round", "raise", "record", "decisions", "history", "ledger", "orphans", "sig", "where",
-                 "toc", "tail", "outline", "section", "question")
+                 "toc", "tail", "outline", "section", "question", "note", "brief")
 # A command that does nothing without this second word.
 SUBCOMMANDS = {"history": "add", "lesson": "add"}
 NAMED_COMMAND = re.compile(r"python3? tools[/\\]docs\.py[ \t]+([^\s`]+)(?:[ \t]+([^\s`]+))?")
@@ -1226,6 +1282,8 @@ def find_problems(repo, files, sources=()):
                     problems.append((name, n, f"cites section {number}, which {DESIGN} does not have"))
             for match in re.finditer(r"`([\w./-]+\.md)`", text):
                 target = match.group(1)
+                if target.startswith(SCRATCH):
+                    continue
                 exists = (repo / target).exists() if "/" in target else target in basenames
                 if not exists:
                     problems.append((name, n, f"names {target}, which is not a tracked document"))
@@ -1247,6 +1305,10 @@ def find_problems(repo, files, sources=()):
                 problems.append((name, n, f"still holds {found}; fill it in (the lg-bootstrap skill says how)"))
     if settings["bootstrapped"] and "{{" in json.dumps({k: v for k, v in settings.items() if k != "core"}):
         problems.append((CONFIG, 1, "still holds a {{placeholder}}; set the project's values"))
+    for name, value in policies(repo).items():
+        if value not in POLICIES.get(name, ()):
+            known = f"takes {' or '.join(POLICIES[name])}" if name in POLICIES else f"is no policy ({', '.join(POLICIES)})"
+            problems.append((CONFIG, 1, f'policies "{name}": "{value}" {known}'))
 
     history = (repo / HISTORY).read_text(encoding="utf-8") if (repo / HISTORY).exists() else ""
     for package in ledger.packages:
@@ -1441,16 +1503,26 @@ def show_context(repo):
 
 
 def add_lesson(repo, line):
+    """lesson add: queue_lesson, printed."""
+    try:
+        print(queue_lesson(repo, line))
+    except ValueError as error:
+        print(error)
+        return 1
+    return 0
+
+
+def queue_lesson(repo, line):
     """Appends one line to the lessons queue, never rewriting the file (a rewrite once lost its header), and
-    prints the queue's length. A line not starting "- " gets it."""
+    returns a line giving the queue's length; raises ValueError for no line or no queue. A line not starting
+    "- " gets it."""
     path = Path(repo) / LESSONS
     line = line.strip()
     if not line or "\n" in line:
-        print('lesson add takes one line: python tools/docs.py lesson add "- XX-nnn: <what> → <the change>"')
-        return 1
+        raise ValueError('lesson add takes one line: python tools/docs.py lesson add "- XX-nnn: <what> → <the change>"')
     if not path.is_file():
-        print(f"No {LESSONS}: it holds the queue's header, so lesson add never creates it. Restore it from the kit.")
-        return 1
+        raise ValueError(f"No {LESSONS}: it holds the queue's header, so lesson add never creates it."
+                         " Restore it from the kit.")
     if not line.startswith("- "):
         line = "- " + line
     text = path.read_text(encoding="utf-8")
@@ -1462,9 +1534,8 @@ def add_lesson(repo, line):
         queue.write(lead + line + "\n")
     waiting += 1
     due = config(repo)["retro_after_lessons"]
-    print(f"Added to {LESSONS}: {waiting} lesson{'s wait' if waiting != 1 else ' waits'} for a retro"
-          + (f", past retro_after_lessons ({due}): a retro is due." if waiting > due else "."))
-    return 0
+    return (f"Added to {LESSONS}: {waiting} lesson{'s wait' if waiting != 1 else ' waits'} for a retro"
+            + (f", past retro_after_lessons ({due}): a retro is due." if waiting > due else "."))
 
 
 def report_files(repo, setting):
@@ -1918,11 +1989,13 @@ def code_list(names):
     return ", ".join(f"`{name}`" for name in names)
 
 
-def record_section(package_id, name, builder, date, block, steps=None, changes=None):
-    """A package's record section. What close knows is filled in (the manual check's steps, and from git the
-    files and tests the package changed); the prose is left as TODOs."""
+def record_section(package_id, name, builder, date, block, steps=None, changes=None, note=None):
+    """A package's record section. What close knows is filled in (the manual check's steps, from git the files
+    and tests the package changed and its build commit, and from a pending note its rulings, defaults, not done
+    and dispatch line); the rest of the prose is left as TODOs."""
     changes = changes or {}
     quoted = "\n".join("> " + line if line else ">" for line in block.split("\n"))
+    built = f", in `{changes['build'][0]}` ({changes['build'][1]})" if changes.get("build") else ""
     changed = f" (these changed: {code_list(changes['files'])})" if changes.get("files") else ""
     commits = f" Its commits: {'; '.join(changes['commits'])}." if changes.get("commits") else ""
     tests = changes.get("tests", {})
@@ -1933,15 +2006,24 @@ def record_section(package_id, name, builder, date, block, steps=None, changes=N
         tested = f"{TODO}: the tests that cover it, or why none were added"
     manual = (f"all {steps} steps passed: {TODO}, what was seen." if steps
               else f"none; {TODO}: why no manual check was needed.")
+    decisions = left = dispatch = ""
+    if note is not None:
+        made = note.get("Rulings", []) + note.get("Defaults", [])
+        decisions = "### Rulings and defaults\n\n" + ("\n".join(made) if made else "None recorded.") + "\n\n"
+        left = "\n### Not done\n\n" + ("\n".join(note.get("Not done", [])) or "Nothing.") + "\n"
+        dispatch = "".join(f"- Dispatch: {re.sub(r'^- (?:Dispatch: ?)?', '', line)}\n" for line in note.get("Dispatch", []))
     return (f"## {package_id} {name}\n\n"
-            f"Built and approved on {date} by {builder}. Rules in `{DESIGN}` {TODO}: the sections and what each holds.\n\n"
+            f"Built and approved on {date} by {builder}{built}. Rules in `{DESIGN}` {TODO}: the sections and what each"
+            " holds.\n\n"
             "### The package as approved for building\n\n"
             f"From `{LEDGER}`, unedited:\n\n{quoted}\n\n"
+            + decisions +
             "### What was built\n\n"
             f"- {TODO}: the rules, then each code change by file{changed}, then any fixtures and debug controls.{commits}\n\n"
             "### Verification\n\n"
             f"- Tests: {tested}.\n"
-            f"- Manual check: {manual}\n")
+            f"- Manual check: {manual}\n"
+            + dispatch + left)
 
 
 START_COMMIT = "start building"
@@ -1968,10 +2050,13 @@ def package_changes(repo, package_id):
         names = [name for name in sorted(set(names)) if Path(name).suffix in docs_sig.ADAPTERS]
         diffs = {path: "".join(git("show", "-U0", "--format=", commit, "--", path) for commit in commits)
                  for path in names if docs_sig.is_test(path)}
+        # The last commit is the build's: its message is the full account, so the record cites it.
+        build = (git("rev-parse", "--short", commits[-1]).strip(), log[-1].split(" ", 1)[1]) if commits else None
     except (OSError, subprocess.CalledProcessError):
         return {}
     subjects = [line.split(" ", 1)[1].split(": ", 1)[-1] for line in log if " " in line]
     return {
+        "build": build,
         "files": [name for name in names if not docs_sig.is_test(name)],
         "test_files": [name for name in names if docs_sig.is_test(name)],
         "tests": {path: list(dict.fromkeys(docs_sig.added_tests(path, diff))) for path, diff in diffs.items()},
@@ -2032,8 +2117,17 @@ def close_package(repo, package_id, date, steps=None, delivered=None):
     existing = sorted(folder.glob(f"*-{record_slug(title)}-record.md"))
     path = existing[0] if existing else folder / f"{date}-{record_slug(title)}-record.md"
     record = path.relative_to(repo / ARCHIVE).as_posix()
+    note, unplaced = read_note(repo, package_id)
+    lessons = [re.sub(r"^-?\s*", "- ", line) for line in (note or {}).get("Lessons", [])]
+    lessons = [line if line.startswith(f"- {package_id}") else f"- {package_id}: {line[2:]}" for line in lessons]
+    # Refused before anything is written, so a close never leaves a lesson behind half done.
+    if len(lessons) > LESSONS_PER_PACKAGE:
+        raise ValueError(f"{note_path(repo, package_id).relative_to(repo).as_posix()} queues {len(lessons)} lessons;"
+                         f" a package queues at most {LESSONS_PER_PACKAGE}. Keep the ones that cost most, then close.")
+    if lessons and not (repo / LESSONS).is_file():
+        raise ValueError(f"The note queues lessons and there is no {LESSONS}; restore it from the kit, then close.")
     section = record_section(package_id, package["name"], package["builder"] or TODO, date, block, steps,
-                             package_changes(repo, package_id))
+                             package_changes(repo, package_id), note)
 
     write(ledger_path, text)
     if existing:
@@ -2049,9 +2143,357 @@ def close_package(repo, package_id, date, steps=None, delivered=None):
     index = repo / ARCHIVE_INDEX
     write(index, index_entry(index.read_text(encoding="utf-8"), record, title, package_id,
                              package["name"], date, standalone))
-    return [f"Removed {package_id}'s ledger line and block.", f"Added the history row to {HISTORY}.",
+    done = [f"Removed {package_id}'s ledger line and block.", f"Added the history row to {HISTORY}.",
             f"{'Appended to' if existing else 'Created'} {path.relative_to(repo).as_posix()}; fill its {TODO}s.",
-            f"Added {package_id} to {ARCHIVE_INDEX}."] + notes
+            f"Added {package_id} to {ARCHIVE_INDEX}."]
+    if note is not None:
+        done.append("Placed the pending note's rulings, defaults, not done and dispatch line in the record.")
+        done += [queue_lesson(repo, line) for line in lessons]
+    if unplaced:
+        done.append("The pending note holds lines close could not place; put each where it belongs:")
+        done += [f"    {line}" for line in unplaced]
+    return done + notes
+
+
+# --- writing: the pending note and chunk briefs --------------------------------------------------
+
+PENDING = SCRATCH + "pending"  # gitignored: a package's note, plan, briefs and reports, removed after its close
+NOTE_HEADINGS = ("Rulings", "Defaults", "Not done", "Dispatch", "Lessons")
+LESSONS_PER_PACKAGE = 3
+# The most lines one listing in a brief takes: an unbounded listing once made an 18.7k-word brief.
+LISTING_CAP = 40
+PLAN_CLAUSES = ("files", "consumes", "produces", "copies", "done when", "falsify", "verify")
+TALLY = re.compile(r"\s*\(S \d+, K \d+, T \d+\)\s*$")
+REPORT_PART = re.compile(r"##\s*(\d)\.")
+REPORT_PARTS = {1: "Files changed", 4: "Not done", 6: "Produced"}
+
+
+def note_path(repo, package_id):
+    return Path(repo) / PENDING / package_id / "note.md"
+
+
+def note_sections(text):
+    """A pending note as (the lines before its first ## heading, {heading: its entries} in file order). An entry
+    is a non-blank line with any indented lines under it joined on, so each is one line."""
+    preamble, sections, current = [], {}, None
+    for line in text.split("\n"):
+        heading = re.match(r"##\s+(.+?)\s*$", line)
+        if heading:
+            current = sections.setdefault(heading.group(1), [])
+        elif line.strip():
+            entries = current if current is not None else preamble
+            if line[:1].isspace() and entries:
+                entries[-1] += " " + line.strip()
+            else:
+                entries.append(line.rstrip())
+    return preamble, sections
+
+
+def render_note(preamble, sections):
+    lines = preamble + [""]
+    for heading, entries in sections.items():
+        lines += [f"## {heading}", ""] + (entries + [""] if entries else [])
+    return "\n".join(lines)
+
+
+def read_note(repo, package_id):
+    """(the note's entries under the headings close places, or None with no note; its lines close cannot place:
+    any before its first heading but the title, and those under any other heading)."""
+    path = note_path(repo, package_id)
+    if not path.is_file():
+        return None, []
+    preamble, sections = note_sections(path.read_text(encoding="utf-8"))
+    unplaced = [line for line in preamble if not line.startswith("# ")]
+    unplaced += [f"## {heading}: {line}" for heading, lines in sections.items() if heading not in NOTE_HEADINGS
+                 for line in lines]
+    return {heading: sections.get(heading, []) for heading in NOTE_HEADINGS}, unplaced
+
+
+def open_note(repo, package_id):
+    """Makes the package's pending note with its headings if absent; returns (its path, whether it was made)."""
+    path = note_path(repo, package_id)
+    if path.is_file():
+        return path, False
+    path.parent.mkdir(parents=True, exist_ok=True)
+    write(path, render_note([f"# {package_id} pending note"], {heading: [] for heading in NOTE_HEADINGS}))
+    return path, True
+
+
+def add_note_line(repo, package_id, heading, line, date):
+    """Appends one line under one of the note's headings, making the note first if absent; returns the note's
+    path. A ruling or default with no date gets "(owner, date)" or "(default, date)"; the one dispatch line
+    replaces the last. Raises ValueError, writing nothing, for a heading the note has not, more than one line, a
+    default without its alternatives or a fourth lesson."""
+    name = next((h for h in NOTE_HEADINGS if h.lower() == re.sub(r"[-_]", " ", heading).strip().lower()), None)
+    if name is None:
+        raise ValueError(f'The note has no heading "{heading}"; its headings: {", ".join(NOTE_HEADINGS)}.')
+    line = line.strip()
+    if not line or "\n" in line:
+        raise ValueError(f'note takes one line: python tools/docs.py note {package_id} {name.lower()} "<line>"')
+    if not line.startswith("- "):
+        line = "- " + line
+    if name == "Defaults" and "alternative" not in line.lower():
+        raise ValueError('A default names what it was chosen over: "- <the choice>; alternatives: <each, and why'
+                         ' not>".')
+    if name in ("Rulings", "Defaults") and not DATE.search(line):
+        line += f" ({'owner' if name == 'Rulings' else 'default'}, {date})"
+    path = note_path(repo, package_id)
+    text = path.read_text(encoding="utf-8") if path.is_file() else None
+    preamble, sections = (note_sections(text) if text is not None
+                          else ([f"# {package_id} pending note"], {h: [] for h in NOTE_HEADINGS}))
+    entries = sections.setdefault(name, [])
+    if name == "Lessons" and len(entries) >= LESSONS_PER_PACKAGE:
+        raise ValueError(f"The note holds {len(entries)} lessons, a package's most; replace one by hand if this"
+                         " costs more.")
+    if name == "Dispatch":
+        entries.clear()
+    entries.append(line)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    write(path, render_note(preamble, sections))
+    return path
+
+
+def capped(lines, source):
+    """A listing cut to LISTING_CAP lines, the last naming how many more are in source."""
+    if len(lines) <= LISTING_CAP:
+        return lines
+    return lines[:LISTING_CAP] + [f"- … and {len(lines) - LISTING_CAP} more lines, in {source}"]
+
+
+def plan_clauses(item):
+    """A plan's chunk line as {clause keyword: its text}, with "title" for the text before the first keyword and
+    "tally" for the closing (S s, K k, T t). A part after a "; " that starts with no keyword continues the one
+    before it, so a done-when list may run "(a) …; (b) …"."""
+    tally = TALLY.search(item)
+    clauses = {"tally": tally.group(0).strip() if tally else ""}
+    key = "title"
+    for n, part in enumerate(re.split(r";\s+", TALLY.sub("", item))):
+        found = next((k for k in PLAN_CLAUSES if re.match(rf"(?i){k}\b", part)), None) if n else None
+        if found:
+            key = found
+            clauses[key] = part[len(found):].strip()
+        else:
+            clauses[key] = clauses[key] + "; " + part if key in clauses else part
+    return clauses
+
+
+def clause_files(text):
+    """The files a files clause lists, comma- or "and"-separated, backticks dropped."""
+    words = re.split(r",\s*|\s+and\s+|\s+", text or "")
+    return [word.strip("`") for word in words if "." in word.strip("`") or "/" in word.strip("`")]
+
+
+def consumed_names(text):
+    """The sig names a consumes clause lists in backticks: `Name`, `Name.member` as Name:member, any (args) or
+    : type dropped."""
+    names = re.findall(r"`([A-Za-z_$][\w$]*)(?:\.([\w$]+))?[^`]*`", text or "")
+    return list(dict.fromkeys(f"{name}:{member}" if member else name for name, member in names))
+
+
+def read_plan(text, design):
+    """plan.md as {"rules": [section numbers], "seams": [(name, site, chunk numbers or None for all)],
+    "chunks": {n: its line, continuation lines joined}}. Raises ValueError naming every line it cannot place,
+    a seam tagged with no chunk or one the plan lacks, a rule section DESIGN.md lacks, and a chunk without its
+    files or done-when clause, or consuming names it does not backtick."""
+    rules, seams, chunks, bad = None, [], {}, []
+    part, current = None, None
+    for n, line in enumerate(text.split("\n"), 1):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        heading = re.fullmatch(r"##\s+(.+)", stripped)
+        if heading:
+            part, current = heading.group(1).strip().lower(), None
+            if part not in ("seams", "chunks"):
+                bad.append(f"line {n}, {stripped}: a plan's parts are ## Seams and ## Chunks")
+            continue
+        if part is None:
+            rule = re.fullmatch(r"(?i)rules?:\s*(.*)", stripped)
+            if rule:
+                rules = re.findall(r"\d+(?:\.\d+)*", rule.group(1))
+            elif not stripped.startswith("# "):
+                bad.append(f"line {n}, {stripped}: before ## Seams, only the title and the Rules: line")
+        elif part == "seams":
+            cells = [cell.strip() for cell in re.sub(r"^-\s*", "", stripped).split("|")]
+            tags = cells[2] if len(cells) == 3 else ""
+            if len(cells) != 3 or not cells[0] or not cells[1]:
+                bad.append(f"line {n}, {stripped}: a seam row is `- name | file:line | chunks`")
+            elif tags.lower() == "all":
+                seams.append((cells[0].strip("`"), cells[1], None, n))
+            elif re.fullmatch(r"\d+(?:\s*(?:,|and)\s*\d+)*", tags):
+                seams.append((cells[0].strip("`"), cells[1], {int(t) for t in re.findall(r"\d+", tags)}, n))
+            else:
+                bad.append(f"line {n}, {stripped}: a seam tagged with no chunk; tag it with the chunks that"
+                           " read it, or all")
+        elif part == "chunks":
+            item = re.match(r"(\d+)\.\s+(.+)", line)
+            if item:
+                current = int(item.group(1))
+                if current in chunks:
+                    bad.append(f"line {n}: chunk {current} is planned twice")
+                chunks[current] = item.group(2).strip()
+            elif current is not None and line[:1].isspace():
+                chunks[current] += " " + stripped
+            else:
+                bad.append(f"line {n}, {stripped}: neither a numbered chunk line nor an indented continuation")
+    if rules is None:
+        bad.append("no Rules: line naming the package's rule sections")
+    else:
+        bad += [f"Rules: names section {number}, which {DESIGN} does not have" for number in rules
+                if find_section(design, number) is None]
+    if not chunks:
+        bad.append("no numbered chunk under ## Chunks")
+    for name, _, tags, n in seams:
+        bad += [f"line {n}: the seam {name} is tagged with chunk {t}, which the plan lacks"
+                for t in sorted((tags or set()) - set(chunks))]
+    for number, item in chunks.items():
+        clauses = plan_clauses(item)
+        missing = [k for k in ("files", "done when") if not clauses.get(k)]
+        if missing:
+            bad.append(f"chunk {number} has no {' and no '.join(missing)} clause")
+        consumes = clauses.get("consumes", "")
+        if consumes and consumes.lower() != "none" and not consumed_names(consumes):
+            bad.append(f"chunk {number} consumes names nothing in backticks; write `Name` or `Name.member`, or none")
+    if bad:
+        raise ValueError("plan.md cannot be briefed:\n" + "\n".join(f"  - {line}" for line in bad))
+    return {"rules": rules, "seams": [s[:3] for s in seams], "chunks": chunks}
+
+
+def report_parts(path):
+    """A chunk report's parts by number (its `## n.` headings), each its non-blank lines; ValueError when it has
+    none of the parts a brief carries."""
+    parts, current = {}, None
+    for line in path.read_text(encoding="utf-8").split("\n"):
+        heading = REPORT_PART.match(line.strip())
+        if heading:
+            current = parts.setdefault(int(heading.group(1)), [])
+        elif current is not None and line.strip():
+            current.append(line.rstrip())
+    if not set(REPORT_PARTS) & set(parts):
+        raise ValueError(f"{path.name} has no `## 1.`, `## 4.` or `## 6.` part (.claude/agents/chunk.md, Reporting);"
+                         " have its chunk rewrite it in that shape.")
+    return parts
+
+
+def chunk_brief(repo, package_id, number, finisher):
+    """A chunk's brief, as text: everything dispatch.md section 2 asks that the plan, the note, the ledger, git
+    and the earlier reports hold. Raises ValueError for what it cannot place or find."""
+    repo = Path(repo)
+    folder = repo / PENDING / package_id
+    plan_file = folder / "plan.md"
+    if not plan_file.is_file():
+        raise ValueError(f"No {PENDING}/{package_id}/plan.md: write the Build plan first (dispatch.md section 1).")
+    ledger = load_ledger(repo)
+    block = ledger.blocks.get(package_id)
+    if block is None:
+        raise ValueError(f"{package_id} has no block in {LEDGER}.")
+    plan = read_plan(plan_file.read_text(encoding="utf-8"), load(DESIGN, repo))
+    if number not in plan["chunks"]:
+        raise ValueError(f"plan.md has no chunk {number}; its chunks: {', '.join(map(str, plan['chunks']))}.")
+    clauses = plan_clauses(plan["chunks"][number])
+    label = f"{number}b" if finisher else str(number)
+
+    reports = {}
+    for k in range(1, number + 1 if finisher else number):
+        path = folder / f"chunk-{k}-report.md"
+        if not path.is_file():
+            raise ValueError(f"No chunk-{k}-report.md: chunk {number}'s {'finisher' if finisher else 'brief'}"
+                             f" carries chunk {k}'s report.")
+        reports[k] = [(path.name, report_parts(path))]
+        finished = folder / f"chunk-{k}b-report.md"
+        if finished.is_file():
+            reports[k].append((finished.name, report_parts(finished)))
+
+    copied = []
+    for sha in re.findall(r"\b[0-9a-f]{7,40}\b", clauses.get("copies", "")):
+        try:
+            names = subprocess.run(["git", "-c", "core.quotepath=off", "show", "--name-only", "--format=", sha],
+                                   cwd=repo, capture_output=True, encoding="utf-8", check=True).stdout.split()
+        except (OSError, subprocess.CalledProcessError):
+            raise ValueError(f"chunk {number} copies {sha}, which is no commit here.") from None
+        copied.append((sha, names))
+
+    own = clause_files(clauses.get("files"))
+    others = [f for k, item in plan["chunks"].items() if k != number for f in clause_files(plan_clauses(item).get("files"))]
+    status = subprocess.run(["git", "-c", "core.quotepath=off", "status", "--porcelain"], cwd=repo,
+                            capture_output=True, encoding="utf-8").stdout
+    changed = [line[3:].split(" -> ")[-1] for line in status.split("\n") if line.strip()]
+    not_yours = list(dict.fromkeys(f for f in others + changed if f not in own and not f.startswith(PENDING)))
+
+    note, _ = read_note(repo, package_id)
+    decisions = (note or {}).get("Rulings", []) + (note or {}).get("Defaults", [])
+    _, _, view, _ = package_view(ledger, block)
+    out = [f"# {package_id} {block['name']}: chunk {label}", "",
+           "Your requirements, whole: build what this brief says and nothing beside it. Write your report to"
+           f" `{PENDING}/{package_id}/chunk-{label}-report.md` in the parts `.claude/agents/chunk.md` gives.", ""]
+    if finisher:
+        left = reports[number][-1][1].get(4) or ["- (the report's Not done part is empty; finish what is unticked)"]
+        out += ["## What is left", "", f"Chunk {number} stopped with this not done. Finish it; the rest of the"
+                " brief stands as written.", ""] + capped(left, reports[number][-1][0]) + [""]
+    out += ["## The package", "", view, "",
+            "## Rules", "", "Read them by section, never the whole document:", "",
+            f"    python tools/docs.py {' '.join(plan['rules'])}", "",
+            "## Decisions so far", ""] + (capped(decisions, "note.md") or ["None recorded."]) + [""]
+    out += ["## Your chunk", "", clauses["title"], ""]
+    out += [f"- {key.capitalize()}: {clauses[key]}" for key in ("files", "consumes", "produces", "copies", "verify")
+            if clauses.get(key)]
+    if clauses["tally"]:
+        out.append(f"- Tally: {clauses['tally']}")
+    tests = [t.strip().rstrip(",;") for t in re.split(r"(?=\([a-z]\)\s)", clauses["done when"])]
+    lead = tests.pop(0) if tests and not re.match(r"\([a-z]\)", tests[0]) else ""
+    out += ["", f"Done when {lead}".rstrip() + ":", ""] + capped([f"- {t}" for t in tests], "plan.md")
+    out += ["", f"Falsify: {clauses.get('falsify') or 'nothing; this chunk spends no falsification'}.", ""]
+
+    seams = [f"- `{name}` {site}" for name, site, tags in plan["seams"] if tags is None or number in tags]
+    sigs = [f"    python tools/docs.py sig {name}" for name in consumed_names(clauses.get("consumes", ""))]
+    out += ["## Read first", ""]
+    out += capped(seams, "plan.md") + ([""] if seams else [])
+    out += capped(sigs, "plan.md") + ([""] if sigs else [])
+    for sha, names in copied:
+        out += [f"The files `{sha}` changed, the commit this chunk copies:", ""]
+        out += capped([f"- {name}" for name in names], f"git show --stat {sha}") + [""]
+    if not (seams or sigs or copied):
+        out += ["Nothing located; search for what you need, batched into one call.", ""]
+
+    earlier = [k for k in reports if k != number or not finisher]
+    if earlier:
+        out += ["## Earlier chunks", ""]
+        deviations = []
+        for k in earlier:
+            for name, parts in reports[k]:
+                out += [f"### Chunk {k} as built ({name})", ""]
+                for part in (1, 6):
+                    out += [f"{REPORT_PARTS[part]}:", ""] + capped(parts.get(part) or ["- none"], name) + [""]
+                deviations += capped([f"- Chunk {k}: {line.lstrip('- ')}" for line in parts.get(4, [])], name)
+        out += ["### Deviations", "", "What the earlier chunks left undone or built otherwise than planned:", ""]
+        out += (deviations or ["None."]) + [""]
+    out += ["## Not yours", "", "Other chunks' files, and changes already in the tree that are not this chunk's:", ""]
+    out += capped([f"- {name}" for name in not_yours], "plan.md and git status") or ["- none"]
+    return "\n".join(out) + "\n"
+
+
+def write_brief(repo, package_id, chunk, force=False):
+    """brief XX-nnn <n|nb> [--force]: writes the brief and prints its path and size; refuses, writing nothing,
+    on any fault, and an existing brief without force."""
+    found = re.fullmatch(r"(\d+)(b?)", chunk)
+    if not found:
+        print(f"brief takes a chunk number, or n b for a finisher: python tools/docs.py brief {package_id} 2b")
+        return 1
+    number, finisher = int(found.group(1)), bool(found.group(2))
+    path = Path(repo) / PENDING / package_id / f"chunk-{chunk}-brief.md"
+    shown = path.relative_to(repo).as_posix()
+    if path.is_file() and not force:
+        print(f"{shown} exists, perhaps with your additions; --force replaces it.")
+        return 1
+    try:
+        text = chunk_brief(repo, package_id, number, finisher)
+    except ValueError as error:
+        print(error)
+        print("Nothing was written.")
+        return 1
+    write(path, text)
+    print(f"Wrote {shown} (~{tokens(text):,} tokens). Read it once; add only what the tool cannot know.")
+    return 0
 
 
 # --- writing: an Initiative's close ------------------------------------------------------------
@@ -2959,6 +3401,31 @@ def main(args, repo=REPO):
         print("\n".join(done))
         print()
         return check(files, repo)
+    if target == "note" and len(args) >= 2 and ids.parse(args[1]):
+        package_id = ids.parse(args[1])
+        rest, options = options_from(args[2:], ("--date",))
+        if not rest:
+            path, made = open_note(repo, package_id)
+            print(f"{'Made' if made else 'Already there:'} {path.relative_to(repo).as_posix()}")
+            return 0
+        # "Not done" may come unquoted, as two words.
+        split = 2 if len(rest) >= 3 and f"{rest[0]} {rest[1]}".lower() == "not done" else 1
+        if len(rest) <= split:
+            print(f'note takes a heading and one line: python tools/docs.py note {package_id} rulings "<line>"')
+            return 1
+        try:
+            path = add_note_line(repo, package_id, " ".join(rest[:split]), " ".join(rest[split:]),
+                                 options.get("--date", today))
+        except ValueError as error:
+            print(error)
+            return 1
+        print(f"Added to {path.relative_to(repo).as_posix()}.")
+        return 0
+    if target == "brief" and len(args) >= 3 and ids.parse(args[1]):
+        if args[3:] not in ([], ["--force"]):
+            print(f"brief takes a package, a chunk and optionally --force, not {' '.join(args[3:])}.")
+            return 1
+        return write_brief(repo, ids.parse(args[1]), args[2], args[3:] == ["--force"])
     if target == "drop" and len(args) >= 2:
         return drop(files, args[1:], repo)
     if target == "decisions" and len(args) >= 2 and (args[1:] == ["--all"] or all(
@@ -3051,7 +3518,7 @@ def main(args, repo=REPO):
 
     package_id = ids.parse(target)
     if package_id and len(args) == 1:
-        return show_package(load_ledger(repo), load(DESIGN, repo), package_id)
+        return show_package(load_ledger(repo), load(DESIGN, repo), package_id, policy_line(repo))
 
     question = re.fullmatch(r"(?i)(?:q|question\s*)(\d+)", whole)
     if question:
@@ -3107,7 +3574,7 @@ def main(args, repo=REPO):
     ledger = load_ledger(repo)
     initiative = ledger.initiative_name(whole)
     if initiative is not None:
-        return show_initiative(ledger, initiative)
+        return show_initiative(ledger, initiative, policy_line(repo))
     print(f'"{whole}" is no package, section, question, document or Initiative.'
           f" Initiatives: {', '.join(ledger.initiatives) or 'none'}.")
     return 1

@@ -381,6 +381,11 @@ class Check(Repo):
         self.put("ignored.md", "# Ignored\n")
         self.assertNotIn("ignored.md", docs.tracked_markdown(self.repo))
 
+    def test_scratch_files_may_be_named(self):
+        self.put("notes.md", "# Notes\n\nWrite `working/pending/TS-100/note.md`; read `missing.md`.\n")
+        found = [p for p in self.problems() if "not a tracked document" in p]
+        self.assertEqual(["names missing.md, which is not a tracked document"], found)
+
     def test_outside_a_repository(self):
         outside = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
@@ -886,6 +891,249 @@ class Lessons(Repo):
         code, out = self.main("check")
         self.assertEqual(0, code)
         self.assertIn("3 lessons wait in docs/agent-notes/lessons.md; a retro is due", out)
+
+
+NOTE = "working/pending/TS-100/note.md"
+
+
+class PendingNote(Repo):
+    def test_note_is_made_once_with_its_headings(self):
+        code, out = self.main("note", "TS-100")
+        self.assertEqual(0, code, out)
+        self.assertIn("Made working/pending/TS-100/note.md", out)
+        self.assertEqual("# TS-100 pending note\n\n## Rulings\n\n## Defaults\n\n## Not done\n\n## Dispatch\n\n"
+                         "## Lessons\n", self.read(NOTE))
+        self.put(NOTE, self.read(NOTE) + "kept\n")
+        self.assertIn("Already there", self.main("note", "TS-100")[1])
+        self.assertTrue(self.read(NOTE).endswith("kept\n"))
+
+    def test_note_lines_land_under_their_headings_dated(self):
+        self.main("note", "TS-100", "rulings", "facets sort by count", "--date", "2026-10-03")
+        self.main("note", "TS-100", "Defaults", "- ties break by name; alternatives: by age, slower", "--date",
+                  "2026-10-03")
+        self.main("note", "TS-100", "not", "done", "the export, left to TS-101")
+        self.main("note", "TS-100", "dispatch", "1 chunk")
+        self.main("note", "TS-100", "dispatch", "2 chunks, models opus/opus")
+        _, sections = docs.note_sections(self.read(NOTE))
+        self.assertEqual(["- facets sort by count (owner, 2026-10-03)"], sections["Rulings"])
+        self.assertEqual(["- ties break by name; alternatives: by age, slower (default, 2026-10-03)"],
+                         sections["Defaults"])
+        self.assertEqual(["- the export, left to TS-101"], sections["Not done"])
+        self.assertEqual(["- 2 chunks, models opus/opus"], sections["Dispatch"])
+
+    def test_note_refuses_a_bare_default_a_fourth_lesson_and_an_unknown_heading(self):
+        code, out = self.main("note", "TS-100", "defaults", "ties break by name")
+        self.assertEqual(1, code)
+        self.assertIn("alternatives", out)
+        for n in range(3):
+            self.assertEqual(0, self.main("note", "TS-100", "lessons", f"lesson {n}")[0])
+        code, out = self.main("note", "TS-100", "lessons", "a fourth")
+        self.assertEqual(1, code)
+        self.assertNotIn("a fourth", self.read(NOTE))
+        code, out = self.main("note", "TS-100", "musings", "x")
+        self.assertEqual(1, code)
+        self.assertIn("no heading", out)
+
+
+class CloseWithNote(Repo):
+    files = {"docs/agent-notes/lessons.md": LESSONS}
+
+    def setUp(self):
+        super().setUp()
+        self.put("src/search/Index.py", "def facets():\n    return [1]\n")
+        self.commit("TS-100 Facets: count facets")
+        self.record = "docs/archive/initiatives/2026-10-05-search-filters-record.md"
+
+    def test_close_places_the_note_and_queues_its_lessons(self):
+        sha = git(self.repo, "rev-parse", "--short", "HEAD").strip()
+        self.main("note", "TS-100", "rulings", "facets sort by count", "--date", "2026-10-03")
+        self.main("note", "TS-100", "defaults", "ties by name; alternatives: by age", "--date", "2026-10-03")
+        self.main("note", "TS-100", "not done", "the export, in TS-101's block")
+        self.main("note", "TS-100", "dispatch", "2 chunks, models opus/opus, calls 80/90")
+        self.main("note", "TS-100", "lessons", "two reruns → read failures first")
+        self.put(NOTE, self.read(NOTE) + "\n## Musings\n\n- a thought with no home\n")
+        code, out = self.main("close", "TS-100", "--date", "2026-10-05")
+        self.assertEqual(0, code, out)
+        record = self.read(self.record)
+        self.assertIn(f"by Claude Opus 5.5, in `{sha}` (TS-100 Facets: count facets).", record)
+        self.assertIn("### Rulings and defaults\n\n- facets sort by count (owner, 2026-10-03)\n"
+                      "- ties by name; alternatives: by age (default, 2026-10-03)\n", record)
+        self.assertIn("- Dispatch: 2 chunks, models opus/opus, calls 80/90\n", record)
+        self.assertIn("### Not done\n\n- the export, in TS-101's block\n", record)
+        self.assertIn("- TS-100: two reruns → read failures first\n", self.read("docs/agent-notes/lessons.md"))
+        self.assertIn("1 lesson waits for a retro", out)
+        self.assertIn("could not place", out)
+        self.assertIn("## Musings: - a thought with no home", out)
+
+    def test_close_without_a_note_adds_no_note_sections(self):
+        code, out = self.main("close", "TS-100", "--date", "2026-10-05")
+        self.assertEqual(0, code, out)
+        record = self.read(self.record)
+        self.assertNotIn("### Rulings and defaults", record)
+        self.assertNotIn("### Not done", record)
+        self.assertNotIn("could not place", out)
+        self.assertEqual(LESSONS, self.read("docs/agent-notes/lessons.md"))
+
+    def test_close_refuses_a_note_with_four_lessons_writing_nothing(self):
+        self.put(NOTE, "# TS-100 pending note\n\n## Lessons\n\n- a\n- b\n- c\n- d\n")
+        before = self.read("LEDGER.md")
+        code, out = self.main("close", "TS-100", "--date", "2026-10-05")
+        self.assertEqual(1, code)
+        self.assertIn("at most 3", out)
+        self.assertEqual(before, self.read("LEDGER.md"))
+        self.assertFalse((self.repo / self.record).exists())
+
+
+PLAN = """# TS-100 Facets: the build plan
+
+Rules: 4.6.1, 4.7
+
+## Seams
+
+- `facets` | src/search/Index.py:1 | 1, 2
+- `save` | src/storage/Files.py:3 | 2
+- `Router` | src/app.py:9 | all
+
+## Chunks
+
+1. Count: facets counted; files src/search/Index.py, tests/test_index.py; consumes none; produces `facets(): list`;
+   done when the tests (a) counts zero facets, (b) counts two; falsify (a); verify the unit tests  (S 1, K 0, T 2)
+2. Store: facets saved; files src/storage/Files.py, tests/test_files.py; consumes `facets`, `Index.rebuild(all)`;
+   produces none; done when the tests (a) saves facets; falsify none; verify the unit tests  (S 1, K 1, T 1)
+"""
+
+CHUNK_REPORT = """# Chunk 1 report
+
+## 1. Files changed
+- src/search/Index.py: counts facets
+## 2. Judgments taken
+- Zero counts are kept, so an empty page shows its facets.
+## 4. Not done
+- (b) counts two: unwritten
+## 6. Produced
+- facets(): list in src/search/Index.py
+"""
+
+PENDING = "working/pending/TS-100/"
+
+
+class Briefs(Repo):
+    def setUp(self):
+        super().setUp()
+        self.put(PENDING + "plan.md", PLAN)
+
+    def brief(self, chunk, *extra):
+        code, out = self.main("brief", "TS-100", chunk, *extra)
+        path = self.repo / PENDING / f"chunk-{chunk}-brief.md"
+        return code, out, path.read_text(encoding="utf-8") if path.is_file() else None
+
+    def test_the_first_chunks_brief(self):
+        self.main("note", "TS-100", "rulings", "facets sort by count", "--date", "2026-10-03")
+        code, out, brief = self.brief("1")
+        self.assertEqual(0, code, out)
+        self.assertRegex(out, r"Wrote working/pending/TS-100/chunk-1-brief.md \(~[\d,]+ tokens\)")
+        self.assertIn("- **TS-100 Facets.** *Outcome:*", brief)
+        self.assertNotIn("TS-101 Saved searches.", brief)
+        self.assertIn("    python tools/docs.py 4.6.1 4.7\n", brief)
+        self.assertIn("- facets sort by count (owner, 2026-10-03)", brief)
+        self.assertIn("Done when the tests:\n\n- (a) counts zero facets\n- (b) counts two\n", brief)
+        self.assertIn("Falsify: (a).", brief)
+        self.assertIn("- `facets` src/search/Index.py:1\n- `Router` src/app.py:9\n", brief)
+        self.assertNotIn("`save`", brief)
+        self.assertIn("## Not yours", brief)
+        self.assertIn("- src/storage/Files.py\n- tests/test_files.py", brief)
+        self.assertNotIn("## Earlier chunks", brief)
+
+    def test_a_later_brief_carries_the_earlier_reports(self):
+        code, out, _ = self.brief("2")
+        self.assertEqual(1, code)
+        self.assertIn("No chunk-1-report.md", out)
+        self.assertIn("Nothing was written", out)
+        self.put(PENDING + "chunk-1-report.md", CHUNK_REPORT)
+        code, out, brief = self.brief("2")
+        self.assertEqual(0, code, out)
+        self.assertIn("Files changed:\n\n- src/search/Index.py: counts facets\n", brief)
+        self.assertIn("Produced:\n\n- facets(): list in src/search/Index.py\n", brief)
+        self.assertIn("- Chunk 1: (b) counts two: unwritten", brief)
+        self.assertNotIn("Zero counts are kept", brief)
+        self.assertIn("    python tools/docs.py sig facets\n    python tools/docs.py sig Index:rebuild\n", brief)
+        self.assertIn("- `save` src/storage/Files.py:3", brief)
+        self.assertIn("- src/search/Index.py\n", brief.split("## Not yours")[1])
+
+    def test_a_finisher_brief_leads_with_what_is_left(self):
+        self.put(PENDING + "chunk-1-report.md", CHUNK_REPORT)
+        code, out, brief = self.brief("1b")
+        self.assertEqual(0, code, out)
+        self.assertLess(brief.index("## What is left"), brief.index("## The package"))
+        self.assertIn("## What is left", brief)
+        self.assertIn("- (b) counts two: unwritten", brief.split("## The package")[0])
+        self.assertIn("Write your report to `working/pending/TS-100/chunk-1b-report.md`", brief)
+        self.assertNotIn("## Earlier chunks", brief)
+
+    def test_refusals_write_nothing(self):
+        cases = {
+            "the untagged seam": PLAN.replace("| src/app.py:9 | all", "| src/app.py:9 |"),
+            "a stray line": PLAN.replace("## Chunks\n", "## Chunks\n\nRemember the cache.\n"),
+            "a seam for chunk 5": PLAN.replace("| 1, 2", "| 1, 5"),
+            "no Rules line": PLAN.replace("Rules: 4.6.1, 4.7\n", ""),
+            "an unknown section": PLAN.replace("4.6.1, 4.7", "4.6.1, 9.9"),
+            "an unbackticked consume": PLAN.replace("consumes `facets`, `Index.rebuild(all)`", "consumes facets"),
+            "no done when": PLAN.replace("done when the tests (a) saves facets; ", ""),
+        }
+        for case, plan in cases.items():
+            with self.subTest(case):
+                self.put(PENDING + "plan.md", plan)
+                self.put(PENDING + "chunk-1-report.md", CHUNK_REPORT)
+                code, out, brief = self.brief("2")
+                self.assertEqual(1, code, out)
+                self.assertIn("plan.md cannot be briefed", out)
+                self.assertIsNone(brief)
+        self.put(PENDING + "plan.md", PLAN)
+        code, out, _ = self.brief("3")
+        self.assertEqual(1, code)
+        self.assertIn("no chunk 3", out)
+        (self.repo / PENDING / "plan.md").unlink()
+        code, out, _ = self.brief("1")
+        self.assertEqual(1, code)
+        self.assertIn("No working/pending/TS-100/plan.md", out)
+
+    def test_an_existing_brief_needs_force(self):
+        self.assertEqual(0, self.brief("1")[0])
+        self.put(PENDING + "chunk-1-brief.md", "the manager's additions\n")
+        code, out, brief = self.brief("1")
+        self.assertEqual(1, code)
+        self.assertEqual("the manager's additions\n", brief)
+        self.assertEqual(0, self.brief("1", "--force")[0])
+
+    def test_a_listing_is_capped(self):
+        rows = "".join(f"- `seam{n}` | src/a.py:{n} | all\n" for n in range(50))
+        self.put(PENDING + "plan.md", PLAN.replace("## Chunks", rows + "\n## Chunks"))
+        code, out, brief = self.brief("1")
+        self.assertEqual(0, code, out)
+        # facets and Router first, then seam0 to seam37: forty rows
+        self.assertIn("- `seam37` src/a.py:37\n", brief)
+        self.assertNotIn("`seam38`", brief)
+        self.assertIn("- … and 12 more lines, in plan.md", brief)
+
+
+class Policies(Repo):
+    def test_defaults_print_nothing(self):
+        code, out = self.main("TS-100")
+        self.assertEqual(0, code, out)
+        self.assertNotIn("policies", out)
+        self.assertEqual({"forks": "ask", "close": "on_approval"}, docs.policies(self.repo))
+
+    def test_a_policy_not_at_its_default_ends_the_package_print(self):
+        self.configure(policies={"forks": "decide"})
+        code, out = self.main("TS-100")
+        self.assertEqual("== Owner policies not at their default: forks: decide.", out.strip().split("\n")[-1])
+        self.assertEqual("on_approval", docs.policies(self.repo)["close"])
+        code, out = self.main("Search Filters")
+        self.assertEqual("== Owner policies not at their default: forks: decide.", out.strip().split("\n")[-1])
+
+    def test_check_refuses_an_unknown_value(self):
+        self.configure(policies={"close": "never"})
+        self.assertIn('policies "close": "never" takes on_approval or on_build', self.problems())
 
 
 REPORT = """<?xml version="1.0" encoding="UTF-8"?>

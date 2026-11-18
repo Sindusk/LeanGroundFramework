@@ -25,7 +25,7 @@ Follow `interview.md`: one message of free-text questions, then one AskUserQuest
 
 Edit each file with the Edit tool (`replace_all` for a placeholder) in this order, so each can cite the earlier:
 
-1. **`tools/leanground.json`:** `project`, `prefix`, `owner`, `collaborators`, `branch`, `push_on_commit`, `commit_body`, `shell`, `source_roots`, `test_report`, and the `commands`, `check_changed` and `stop` among them (`LEANGROUND.md` "Settings" says what each means). Leave `bootstrapped` false until step 6.
+1. **`tools/leanground.json`:** `project`, `prefix`, `owner`, `collaborators`, `branch`, `push_on_commit`, `commit_body`, `shell`, `source_roots`, `test_report`, `verify_steps`, `policies`, and the `commands`, `check_changed` and `stop` among them (`LEANGROUND.md` "Settings" says what each means). Leave `bootstrapped` false until step 6.
 2. **`DESIGN.md`:** the title line, sections 1 to 3; one `### 4.n` heading per system with a paragraph of intent; 5 and 7 to 10 ("None yet." where the owner has nothing); 6.5's first release if named. Section numbers 1 to 11 never change: tools and agents cite them. Contents: `python tools/docs.py toc DESIGN.md`.
 3. **`LEDGER.md`:** one Undesigned line and one `### Name` block per Initiative the owner named, each block a paragraph of intent with the sections it touches; the Contents from `toc LEDGER.md`. The next package ID stays 100.
 4. **`CLAUDE.md`:** the opening paragraph and the project's own "Always" rules, each citing its section. Keep it within its budget (`python tools/docs.py budget`); detail goes to `working-agreements.md`.
@@ -48,7 +48,7 @@ Write every design choice the interview left open as drafts, one per topic (`## 
 
 1. Set `"bootstrapped": true` in `tools/leanground.json`.
 2. `python tools/docs.py check` must pass: every placeholder and bootstrap comment is gone, every citation resolves, every budget holds.
-3. `python -m unittest tools/test_docs.py tools/test_hooks.py`.
+3. `python -m unittest discover -s tools`.
 4. Show the owner a summary: the systems and Initiatives written, the questions raised by number, the defaults chosen, and the permissions to add (step 3.8). Commit `Bootstrap <project> from the Lean Ground Framework` with the trailer `CLAUDE.md` names; push only if a remote exists and `push_on_commit` is set.
 
 Then stop: the next session is the first design round (the lg-design skill) for the Initiative wanted first.

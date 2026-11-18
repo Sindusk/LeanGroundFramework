@@ -16,6 +16,7 @@ The kit's first entries come from the projects it was extracted from: `AZ-` ids 
 - **Word boundaries [PF-531]:** a bare seam name matched every longer word containing it and returned 33KB.
 - **A tool's verdict before the rules [AZ-145]:** Azothos's retro of AZ-145's lessons let a tool whose verdict shapes the rules (curated data that must pass a new check) run before the rules commit; its commit gives no figure.
 - **The exact text attacked [PF-537, PF-614, PF-622]:** Polarity Fracture's owner added the build-time attack after PF-537's rule gaps (under cut.md). Later attacks checked kinds of action but not other writers of the state the rule writes (three interactions found in review), its arithmetic (PF-621) or the acting entity's own case (PF-628); PF-622's review found three exclusions the rule stated and no test covered.
+- **Forks decided as defaults, where the owner chose so [PF split rulings 2026-11-15]:** Polarity Fracture's owner had taken every recommended package split (PF-633, PF-670 and both of PF-634's questions), and each question cost a turn and its input tokens; the owner then had builders re-cut an oversized package themselves, recording the split with its alternatives and leading the report with it. The kit makes this a policy the owner sets, `forks: decide`, rather than every project's rule.
 - **Baseline before the first edit [PF-519, PF-576, PF-528]:** PF-519 found its predecessor's suite red only at its own verification; PF-576's baseline stopped at its first failure, so an inherited failure cost a second whole run; PF-528's baseline died on a dropped connection caused by its own first edits. A failure's start is proven by a red run at the parent commit; one green run here proves nothing.
 
 ## build.md
@@ -33,6 +34,7 @@ The kit's first entries come from the projects it was extracted from: `AZ-` ids 
 
 - **The rule attacked first [PF-537]:** three rule gaps each cost a mid-build correction, and a later review found three more where the rule met another system.
 - **Read, never inferred [PF-599, PF-673]:** plans named a status kind the code did not have (a chunk blocked after about 100 calls), a helper that could not work where it was named, a line no reader printed, and a test board that could not cross the rule's threshold, so its falsification stayed green.
+- **Granularity taken as a default [PF split rulings 2026-11-15]:** as under SKILL.md.
 - **Never "the owner runs" [MM-102]:** the handover asked the owner to run a command and read a template; the owner does neither, and a round was lost.
 - **Inputs exist; stand-ins are the owner's [AZ-191]:** a block with no item to show chose a stand-in itself, and the owner rejected it in two rounds.
 - **Check before naming [MM-110, MM-121, MM-142, MM-144, MM-106]:** a third-party command named from memory was incomplete in the version used, so two of four runs exported nothing; a config was assumed to land per-environment and lived elsewhere, costing a rules rewrite; a planned extension point could not register what the feature needed; "copied with its MIT notice" covered files whose own headers said GPL; a saved format taken from the repository was rewritten whole by the editor's first save.
@@ -56,6 +58,8 @@ The kit's first entries come from the projects it was extracted from: `AZ-` ids 
 ## dispatch.md
 
 - **Produced as a list [PF-533]:** a chunk produced one value where the design allowed several, and was resumed to make it a list; names produced and consumed must match exactly.
+- **Briefs by command, listings capped [PF-533, PF-608]:** PF-533's managers assembled each brief by hand, four or five searches for line numbers already found, signatures retyped, and a Read and two Edits on placeholders; Polarity Fracture's brief generator followed. PF-608's brief listed every source line naming each backticked word on a plan line, 18.7k words, until each listing was capped at 40 lines.
+- **An untagged row refused [PF-614]:** the generator dropped a brief-notes row that carried neither of its tags, so a chunk never saw it; it now refuses the row by name.
 - **Two site lists [PF-535]:** a chunk walking two site lists ran out of budget at 169k with no test written.
 - **Exceptions name their effects; shared types [PF-536]:** "no zone effect lands on an ally" removed an ally's intended gain, found only at the manager's check; a chunk's added union member broke readers it did not list. Its "Read first" lacked the wiring points, so the chunk spent 30 calls before its first edit finding what the manager had found in two greps.
 - **Named tests; DONE past budget [PF-537]:** "with witnesses" left tests unwritten across two chunks; a chunk returned DONE at 139 calls, and a budget nobody reads back is not one.
@@ -73,6 +77,7 @@ The kit's first entries come from the projects it was extracted from: `AZ-` ids 
 
 ## close.md
 
+- **The build is the approval, where the owner chose so [PF cost analysis 2026-10-26]:** packages averaged $20.8, and the manager's close and per-package lesson work, run at 160k to 270k of context, were about 22% of each; Polarity Fracture's owner ruled that a package closes in the session that builds it, held open only by a named reviewer. The kit makes this the policy `close: on_build`.
 - **Lessons appended by command [MM-101]:** MM-101's close rewrote the lessons file instead of appending to it and lost its header and the previous package's lines.
 - **Stop what the session started [PF retro 2026-11-15]:** over three weeks agents started the gate, the readiness check or a restart 234 times and the stop command 30, so dev servers and watchers outlived almost every package; Azothos added a leftover-process check at its close for the same reason.
 

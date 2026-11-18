@@ -40,7 +40,7 @@ You build one chunk of a package for the session that dispatched you. `CLAUDE.md
 
 ## Reporting
 
-Write the report to the path your dispatch names: it is your deliverable, and if the write is refused, the whole report goes in your final message [MM batch-180]. It is read into the managing session's context and re-read every later turn: **at most about 400 words**, no quoted code, no file dumps, in these parts:
+Write the report to the path your dispatch names: it is your deliverable, and if the write is refused, the whole report goes in your final message [MM batch-180]. It is read into the managing session's context and re-read every later turn: **at most about 400 words**, no quoted code, no file dumps, in these parts, each under its own heading (`## 1. Files changed` to `## 6. Produced`), since later briefs carry parts 1, 4 and 6 by number:
 
 1. Files changed, one line each.
 2. Judgments taken, written as commit-body bullets: each a full sentence a reader months later understands without your brief.

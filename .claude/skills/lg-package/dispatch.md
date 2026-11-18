@@ -4,10 +4,15 @@ For a build `SKILL.md` step 2 sized for chunks. The session becomes the **manage
 
 ## 1. The Build plan
 
-Write plan.md in that folder: the package id, the rule sections, the seams as `SKILL.md` step 3 wrote them, then as many chunks as the tally asks, with no cap, in dependency order (a shared rule before its readers):
+Write plan.md in that folder in this shape: each seam `SKILL.md` step 3 located, tagged with the chunks that read it, then as many chunks as the tally asks, with no cap, in dependency order (a shared rule before its readers). `brief` refuses a line it cannot place, an untagged seam among them, never dropping it [PF-614]:
 
 ```markdown
-1. <chunk>: <deliverable>; files <list>; consumes <exact names and types from earlier chunks, or none>; produces <exact exports, routes, fields later chunks use>; copies <a sibling file or an earlier commit, git show --stat <sha>>; done when the tests (a) <named case and what it asserts>, (b) …; falsify (a); verify <the commands>  (S s, K k, T t)
+# XX-nnn Name: the build plan
+Rules: <rule sections: 4.2.1, 7.3>
+## Seams
+- `<name>` | <file:line> | <chunks: 1, 3 or all>
+## Chunks
+1. <chunk>: <deliverable>; files <comma-separated paths>; consumes <`Name`, `Type.member` from earlier chunks, or none>; produces <exact exports, routes, fields later chunks use>; copies <a sibling file, or git show --stat <sha>>; done when the tests (a) <named case and what it asserts>, (b) …; falsify (a); verify <the commands>  (S s, K k, T t)
 ```
 
 - **"Done when" is a numbered list of named tests**, one per criterion and per clause of the rule the chunk builds. The report ticks each by letter [PF-537].
@@ -21,7 +26,7 @@ Write plan.md in that folder: the package id, the rule sections, the seams as `S
 
 ## 2. One chunk at a time
 
-Never two at once: they share the tree, the servers and the test runners. Write `chunk-<n>-brief.md`: the package and rule sections (as `docs.py` commands), the chunk's plan line, the decisions taken so far, "Read first" (where each wiring joins: the function and the line [PF-536]; declarations as `sig` commands, a file only where the chunk edits most of it [PF-541]), every earlier report's "Produced" part whole and its "Not done" as deviations, and "Not yours" (other chunks' files and anything already modified). The brief is the chunk's single source of requirements.
+Never two at once: they share the tree, the servers and the test runners. `python tools/docs.py brief XX-nnn <n>` writes `chunk-<n>-brief.md` from the plan, the note and every earlier report, each listing capped [PF-533, PF-608]. Read it once and add only what the tool cannot know: a wiring point the seams lack (the function and the line [PF-536]), a file the chunk edits most of [PF-541]. The brief is the chunk's single source of requirements.
 
 Dispatch in the foreground with Agent, `subagent_type: "chunk"`; `model: "sonnet"` only for a chunk that copies a sibling with no K file. The prompt is only:
 
@@ -34,11 +39,11 @@ write your report to working/pending/XX-nnn/chunk-<n>-report.md.
 
 - **Act on each return when it arrives;** never end the turn to wait for a notice [PF-540]. **The call count is the harness's** (the completion notice's `tool_uses`), never the report's [PF-541]; a DONE past the agent's budget is recorded OVER BUDGET [PF-537].
 - **BLOCKED** goes to the owner as one AskUserQuestion; resume the same subagent with SendMessage.
-- **OVER BUDGET** is resumed the same way with what is left and 40 more calls, unless its context is past about 150k: then a fresh chunk finishes it from `chunk-<n>b-brief.md` (the brief, headed by what is left, and the report's "Not done") [PF-534]. A chunk needing more was planned too large; the handover says so.
-- **Check each chunk before the next:** `git status --short` and `git diff --stat` against its files, and its "Not done", which becomes the next brief's deviations. A defect goes back to the same subagent below about 120k of its context; past that, a fresh chunk takes a brief of the fix alone [PF-553]. Open only the renders a report marks DOUBTFUL, and a `sonnet` chunk's: each image stays in context [PF-542].
+- **OVER BUDGET** is resumed the same way with what is left and 40 more calls, unless its context is past about 150k: then a fresh chunk finishes it from `brief XX-nnn <n>b`, headed by the report's "Not done" [PF-534]. A chunk needing more was planned too large; the handover says so.
+- **Check each chunk before the next:** `git status --short` and `git diff --stat` against its files, and its "Not done", which the next brief carries as deviations. A defect goes back to the same subagent below about 120k of its context; past that, a fresh chunk takes a brief of the fix alone [PF-553]. Open only the renders a report marks DOUBTFUL, and a `sonnet` chunk's: each image stays in context [PF-542].
 - **Refresh shared state:** when a chunk changed something only the manager may run and a later chunk's tests depend on it (a migration, a seed, generated output, a server restart), run it before the next dispatch, or before the verification when none follows [PF-558, PF-675].
-- Commit each chunk's work as `XX-nnn Name: <what it does>`, the report's judgments as the body's bullets.
+- Commit only between chunks, each chunk's files alone: `python tools/commit.py -F <message file> -- <its files>`, as `XX-nnn Name: <what it does>`, the report's judgments as the body's bullets.
 
 ## 4. Then
 
-The whole verification runs on the manager's context, with the commands in `working-agreements.md` "Build and verify", quiet and filtered to pass and fail lines; then `handover.md` and `close.md`. A failure inside one chunk's files goes back to its subagent; one across chunks is the manager's. The handover gives a line: `Dispatch: <n> chunks, models <per chunk>, calls <n/n/n>, found after the reports <count, each by who found it>`.
+The whole verification runs on the manager's context: `python tools/verify.py` where the project set `verify_steps` (`--resume` after a fix; read `working/verify/summary.md`, never a log), else the commands in `working-agreements.md` "Build and verify", quiet and filtered to pass and fail lines; then `handover.md` and `close.md`. A failure inside one chunk's files goes back to its subagent; one across chunks is the manager's. Note the dispatch line: `python tools/docs.py note XX-nnn dispatch "<n> chunks, models <per chunk>, calls <n/n/n>, found after the reports <count, each by who found it>"`.
