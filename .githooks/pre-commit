@@ -1,0 +1,12 @@
+#!/bin/sh
+# Runs python tools/docs.py check when the commit stages a file it guards (tools/pre_commit.py). Turned on by:
+# git config core.hooksPath .githooks
+repo_root=$(git rev-parse --show-toplevel) || exit 1
+# Each candidate must run, not just exist: Windows ships python3 as a Microsoft Store stub that fails.
+for python in python python3 py; do
+  if "$python" -c "" >/dev/null 2>&1; then
+    exec "$python" "$repo_root/tools/pre_commit.py" "$repo_root"
+  fi
+done
+echo "pre-commit: no Python found; the commit was not checked." >&2
+exit 0
