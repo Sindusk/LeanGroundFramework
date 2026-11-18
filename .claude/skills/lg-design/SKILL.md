@@ -28,13 +28,15 @@ Each stage is its own commit with an ordinary subject (no package id unless a pa
 | "Consolidate" | 4. Consolidate (`consolidate.md`) |
 | An Initiative's design outgrows a few questions | `working-documents-and-backlog.md` |
 | A backlog pitch is promoted, parked or retired | `working-documents-and-backlog.md` |
+| A loose end to work, or a sweep of 6.7 | `working-documents-and-backlog.md`, Loose ends |
+| An outside review (another model's or a person's) | `rounds-and-triage.md`, Outside reviews |
 
 ## 1. Raise a question
 
 - Draft it as `## Questions: DESIGN.md <topic>` with `- **G1.** …` items and run `python tools/docs.py raise <draft>`: it takes the next free number in 6.2, files it under its `#####` topic and bumps the number. Numbers are permanent: never reuse or renumber.
 - Content, in one bullet: the gap and where the design is silent (cite sections), the candidates as **(a)**, **(b)** where there are any, where it was found ("Found cutting <Initiative>", "Found in XX-nnn"), then **Recommendation:** with its tradeoff and **Cost of being wrong:**.
 - **Keep the bullet short when a round will carry it:** the plain-language explanation is the round's.
-- Only real choices go to the owner. Routine details are decided in the document and said so.
+- Only choices a user would notice are raised, worded by what the user sees; a technical one is the agent's, decided in the document and recorded as its decision with what would change it (working-agreements, "Design changes").
 - If the question holds a package, the package's ledger line says "waits on question N".
 - A question belonging to an Initiative with a working document is asked there instead, and 6.2 gets a short note under a heading naming the document and the numbers.
 - Tuning numbers go to `DESIGN.md` section 11, not 6.2. A loose end that is not a design choice (docs disagree with code, a TODO) goes to 6.7.
@@ -70,14 +72,15 @@ A round batches open questions into `design-questions.md` for a reader **outside
 - Question numbers are DESIGN.md's; a round restates them, it doesn't mint new ones. Write the round as a draft and add it with `python tools/docs.py round add <draft>`: questions already raised are headed by their numbers (`#### Q12.`), new ones by placeholders with their `## Questions:` part.
 - Commit: `Design questions round N: <topic>`, body listing the questions.
 
-**Then put the round to the owner in chat; this is the default.** Print it with `python tools/docs.py round` and ask its questions directly, in its order: per question its number and plain question, its explanation (condensed from Explanation and Gap to read without the file), what it holds, the options by letter in a few words each, and the recommendation with its reason in a sentence. Ask for answers by number ("14 rec, 15 a, 16 b but …"). **Rounds are asked in order, one at a time.** **Before asking a round, bring it up to date** where an earlier answer changes a later question's framing or recommendation, so the file, the chat and the recorded decision agree.
+**Then put the round to the owner in chat; this is the default.** Print it with `python tools/docs.py round` and ask its questions directly, in its order: per question its number and plain question, its explanation (condensed from Explanation and Gap to read without the file), what it holds, the options by letter in a few words each, and the recommendation with its reason in a sentence. Ask for answers by number ("14 rec, 15 a, 16 b but …"). **Rounds are asked in order, one at a time.**
 
 ## 3. Record answers
 
 1. **`python tools/docs.py record 14=rec "15=(b), because …" "16=not yet: …"`** (`--by <who>` if not the owner, `--date` if not today), each answer verbatim; with none it reads the Responses filled in the file. It writes each answered question's decision under it, complete for a plain "rec", else a stub with a TODO; removes the question from the round; leaves "not yet", "discuss" and blank responses.
-2. **Replace each stub's TODO** with what departs from or adds to the recommendation, and why; what is unverified. Don't restate the recommendation. `check` reports any stub left.
+2. **Replace each stub's TODO** with what departs from or adds to the recommendation, and why; what is unverified. Don't restate the recommendation. Read the question (`q14`) only when the response alone doesn't say what was decided. `check` reports any stub left.
 3. A partial answer: record the decided part, and keep or raise follow-ups.
-4. Commit: `Record round N's answers: questions …`, naming in the body any decision that overrules the recommendation.
+4. **Bring later open rounds up to date** where these answers change a question's framing or recommendation, so the file, the chat and the recorded decision agree.
+5. Commit: `Record round N's answers: questions …`, naming in the body any decision that overrules the recommendation.
 
 When the owner decides in chat and asks for the result applied at once ("go ahead as you suggest"), recording and consolidating are one commit: stage 4's steps, with the decision in the history row's Reason. Run `record` only for questions in a round; a question never put in one goes straight to consolidation.
 

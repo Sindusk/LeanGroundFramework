@@ -29,7 +29,7 @@ With the commands in `working-agreements.md` "Build and verify" (`python tools/d
 
 ## Reporting
 
-Write the report beside the brief, `<n>-report.md`, at most about 200 words:
+Write the report beside the brief, `<n>-report.md` (your deliverable; if the write is refused, the whole report goes in your final message), at most about 200 words:
 
 1. Files changed, one line each.
 2. Judgments taken, one line each.

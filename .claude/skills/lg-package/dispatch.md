@@ -13,7 +13,7 @@ Write plan.md in that folder: the package id, the rule sections, the seams as `S
 - **"Done when" is a numbered list of named tests**, one per criterion and per clause of the rule the chunk builds. The report ticks each by letter [PF-537].
 - **Consumes and produces match across lines exactly**: signatures and values, never bodies; a value the design lets stack is produced as a list [PF-533].
 - **The plan spends the package's two to five falsifications** as "falsify (x)" clauses on its foundation tests; a chunk with none falsifies nothing [PF-541].
-- **An exception in a rule names its effects**, never "any" or "every": a chunk builds the text literally [PF-536].
+- **An exception names its effects, and a reader set each reader by name,** never "any", "every source" or "every reader": a chunk builds the text literally [PF-536, PF-632].
 - **Tally each line as (S, K, T):** S new site lists, one each: a kind of addition `where-things-live.md` gives a recipe for, a new message or event with its readers, a new per-entity record, a repoint or sweep list, and every three new production fields [PF-632]; K the codebase's largest, most-read files it edits; T its tests. **Split where S ≥ 2, K ≥ 2, or T > 5 with K ≥ 1, with no exception for lines that share a shape** [PF-535, PF-627]. A line with K ≥ 1 plans about four tests [PF-541]. Size each to end near 100k of context, never past about 250k.
 - **Fast-tier tests and slow-tier cases (browser, end-to-end) are separate chunks** [PF-543]; what one consistency check joins lands in one chunk, so each goes green alone [PF-599].
 - A chunk adding a member to a shared type owns every exhaustive reader of it, listed in its files [PF-536].
@@ -32,10 +32,11 @@ write your report to working/pending/XX-nnn/chunk-<n>-report.md.
 
 ## 3. Returns
 
-- **The call count is the harness's** (the completion notice's `tool_uses`), never the report's [PF-541]; a DONE past the agent's budget is recorded OVER BUDGET [PF-537].
+- **Act on each return when it arrives;** never end the turn to wait for a notice [PF-540]. **The call count is the harness's** (the completion notice's `tool_uses`), never the report's [PF-541]; a DONE past the agent's budget is recorded OVER BUDGET [PF-537].
 - **BLOCKED** goes to the owner as one AskUserQuestion; resume the same subagent with SendMessage.
 - **OVER BUDGET** is resumed the same way with what is left and 40 more calls, unless its context is past about 150k: then a fresh chunk finishes it from `chunk-<n>b-brief.md` (the brief, headed by what is left, and the report's "Not done") [PF-534]. A chunk needing more was planned too large; the handover says so.
-- **Check each chunk before the next:** `git status --short` and `git diff --stat` against its files, and its "Not done", which becomes the next brief's deviations. A defect goes back to the same subagent below about 120k of its context; past that, a fresh chunk takes a brief of the fix alone [PF-553].
+- **Check each chunk before the next:** `git status --short` and `git diff --stat` against its files, and its "Not done", which becomes the next brief's deviations. A defect goes back to the same subagent below about 120k of its context; past that, a fresh chunk takes a brief of the fix alone [PF-553]. Open only the renders a report marks DOUBTFUL, and a `sonnet` chunk's: each image stays in context [PF-542].
+- **Refresh shared state:** when a chunk changed something only the manager may run and a later chunk's tests depend on it (a migration, a seed, generated output, a server restart), run it before the next dispatch, or before the verification when none follows [PF-558, PF-675].
 - Commit each chunk's work as `XX-nnn Name: <what it does>`, the report's judgments as the body's bullets.
 
 ## 4. Then

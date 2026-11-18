@@ -1,11 +1,11 @@
-# design: batch rounds and ledger triage
+# design: batch rounds, ledger triage and outside reviews
 
 ## Triage: where an item stands
 
 When the owner asks where ledger items should move, read the lines (`python tools/docs.py ledger`), each item's block and the sections it cites, and the open questions it names; then recommend, and move nothing until the owner says (working-agreements, "Who decides what").
 
 - **Undesigned → Designed:** `DESIGN.md` states its shape (what it is, what it builds on, its rules in outline) and only named choices remain. Its line then says, after the dash, exactly what stands before Work-Ready.
-- **Designed → Work-Ready:** nothing but tuning (section 11) and choices a builder records stands in the way of a cut. A question that would hold one package can stay open: the cut writes it on that package's line.
+- **Designed → Work-Ready:** nothing but tuning (section 11) and choices a builder records stands in the way of a cut. A question that would hold one package can stay open: the cut writes it on that package's line. **First write a user journey** from the decided rules, step by step, in its working document or block; each gap it hits is raised as a question.
 - Stays Undesigned while its core mechanic is open or its rules live only in starting notes.
 
 ## The draft's shape
@@ -20,5 +20,9 @@ Each writes nothing unless every part fits, then checks. By hand afterwards: the
 
 ## Batch rounds: several drafted at once
 
-1. **Brief one drafter per round** (an Initiative or two that overlap), `model: "sonnet"`: the `docs.py` commands and sections to read, never whole files; draft only, into one scratchpad file, nothing tracked edited. Drafting may run in parallel.
-2. **Integrate in order, one round a commit:** review each draft against the others (an answer one round's question depends on, shared data, a term two drafts name differently), fix it in the scratchpad, then `round add`.
+1. **Brief one drafter per round** (an Initiative or two that overlap), `model: "sonnet"`: the `docs.py` commands and sections to read, never whole files; draft only, into one file under `working/`, nothing tracked edited. Drafting may run in parallel.
+2. **Integrate in order, one round a commit:** review each draft against the others (an answer one round's question depends on, shared data, a term two drafts name differently), fix it there, then `round add`.
+
+## Outside reviews
+
+A review by another model or a person is recorded as one note under `docs/` disposing of every finding as a rule already written, a builder's detail, or a package or question already held, else raising it; the note says whether a round follows, and moves to `docs/archive/` once each finding is settled.

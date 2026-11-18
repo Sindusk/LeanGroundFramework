@@ -1,12 +1,12 @@
 ---
 name: lg-feedback
-description: A polish pass over the owner's loose notes — a pasted list of things to change, review notes, "some things I noticed" — worked outside any Work Package. Triage each note by size, ask the owner once, send small mechanical items to fix subagents, build the rest inline, verify once for the whole pass, commit. Use whenever the owner hands over a list of feedback, notes or polish items, even when the request never says "feedback".
+description: A polish pass over the owner's loose notes on the product — things to change, review notes, "some things I noticed" — outside any Work Package. Triage by size, ask once, send small items to fix subagents, build the rest inline, verify once, commit. Use when the owner hands over a list of feedback or polish items, even without the word "feedback"; not for answers to a design round, a package's manual check, or notes on the kit's own process.
 argument-hint: "[the notes, pasted]"
 ---
 
 # lg-feedback
 
-A pass is a list of the owner's notes, each a small user-facing change, with no package id (`working-agreements.md`: a package only for an Initiative's component). `CLAUDE.md` binds every step.
+A pass is a list of the owner's notes, each a small user-facing change, with no package id (`working-agreements.md`: a package only for an Initiative's component). `CLAUDE.md` binds every step. **Past `handoff_past`** (`python tools/docs.py context`) with notes left, finish the one in hand and give the owner a paste-ready prompt for a new session.
 
 **Why the shape is this one.** A pass spends its tokens finding code, seeing each change run, and on defects found late (a layering rule broken, an earlier ruling undone). Subagents repay only where an item is small and self-contained; one per item repays the search twice and multiplies verification. So triage is one read-only sweep, verification is once per pass, and only the mechanical items leave the session.
 
@@ -56,7 +56,7 @@ Read each report when it arrives; check `git diff --stat` against its Files. A d
 
 1. The typecheck, lint and unit tests for every part the pass touched.
 2. **See every change run** where the owner will look at it, in one pass over the screens the notes name; fix what you see and recheck only that.
-3. The slower tests that pin the changed surfaces, in one run. A failure in a file the pass did not touch is checked against HEAD's behaviour before it is called pre-existing.
+3. The slower tests that pin the changed surfaces, in one run. Read a failure with `python tools/docs.py failures`; a long log goes to a `dig` subagent (`.claude/agents/dig.md`) with one question. A failure in a file the pass did not touch is checked against HEAD's behaviour before it is called pre-existing.
 4. `python tools/docs.py check` if any document changed.
 
 ## 5. Handoff and commit
@@ -64,3 +64,5 @@ Read each report when it arrives; check `git diff --stat` against its Files. A d
 The reply leads with the open choices (each look with what to compare), then one line per note (what changed), then "Defaults I chose", then what was verified and what was not. Commit (and push, if `CLAUDE.md` says so) before the reply, the body ending with one line for comparing passes:
 
 `Feedback pass: <n> notes (<s> S / <m> M / <l> L); fix <k> dispatched, <calls> calls; lines changed <git diff --shortstat, excluding .md>`
+
+Before the commit, what cost turns goes into at most two lessons, `python tools/docs.py lesson add "<line>"`.

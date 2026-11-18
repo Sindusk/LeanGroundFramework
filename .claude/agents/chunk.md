@@ -33,17 +33,18 @@ You build one chunk of a package for the session that dispatched you. `CLAUDE.md
 ## Verifying
 
 1. Iterate on the test files you touched, by path, with the commands in `working-agreements.md` "Build and verify" (`python tools/docs.py working-agreements.md "Build and verify"`).
-2. Then the typecheck, lint and unit tests for every part you touched, once when the chunk is written and again after a fix.
-3. Falsify only the tests your brief's "falsify" clauses name, one at a time: break the code the test pins, watch it fail, undo the break with Edit. One that stays green gets **one** more case; if that is green too, record the behaviour as unproven in part 4.
-4. A test failing only on a timeout under load: rerun that file alone, and report both runs.
+2. Then the typecheck, lint and unit tests for every part you touched (`commands.check_changed` in `tools/leanground.json`, where the project has one), once when the chunk is written and again after a fix.
+3. Each "done when" test asserts unconditionally; one whose setup cannot show its rule is BLOCKED, never a conditional assertion [PF-596].
+4. Falsify only the tests your brief's "falsify" clauses name, one at a time: break the code the test pins, watch it fail, undo the break with Edit. One that stays green gets **one** more case; if that is green too, record the behaviour as unproven in part 4.
+5. On a failure, read `python tools/docs.py failures` before any rerun, since the next run overwrites the report. A test failing only on a timeout under load: rerun that file alone, and report both runs.
 
 ## Reporting
 
-Write the report to the path your dispatch names. It is read into the managing session's context and re-read every later turn: **at most about 400 words**, no quoted code, no file dumps, in these parts:
+Write the report to the path your dispatch names: it is your deliverable, and if the write is refused, the whole report goes in your final message [MM batch-180]. It is read into the managing session's context and re-read every later turn: **at most about 400 words**, no quoted code, no file dumps, in these parts:
 
 1. Files changed, one line each.
 2. Judgments taken, written as commit-body bullets: each a full sentence a reader months later understands without your brief.
-3. Verified: each "done when" test by its letter, one line each; one line of suite counts; one line per falsification.
+3. Verified: each "done when" test by its letter, one line each; one line of suite counts; one line per falsification; each screenshot or rendered output with what it shows, marked DOUBTFUL where you are unsure [PF-542].
 4. Not done: each unwritten "done when" test by its letter, and anything that differs from your brief's "produces".
 5. Tool calls used, and how many went to reading before your first edit.
 6. Produced: each export, signature, field, route and file a later chunk consumes, exactly as built (`name(args): Type` in `file`), one line each, or "none". The next brief carries this part whole.

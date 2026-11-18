@@ -12,6 +12,7 @@
   "shell": "PowerShell",
   "source_roots": [],
   "long_file_lines": 400,
+  "shell_read_paths": [],
   "subagent_build_past": 200000,
   "commands": {
     "build": "",
@@ -23,23 +24,24 @@
     "CLAUDE.md": 1250,
     "AGENTS.md": 200,
     "docs/agent-notes/README.md": 300,
-    ".claude/skills/lg-package/SKILL.md": 1770,
-    ".claude/skills/lg-package/build.md": 620,
-    ".claude/skills/lg-package/cut.md": 850,
-    ".claude/skills/lg-package/dispatch.md": 1280,
-    ".claude/skills/lg-package/handover.md": 1100,
-    ".claude/skills/lg-package/close.md": 980,
-    ".claude/skills/lg-package/retro.md": 460,
+    ".claude/skills/lg-package/SKILL.md": 1850,
+    ".claude/skills/lg-package/build.md": 800,
+    ".claude/skills/lg-package/cut.md": 950,
+    ".claude/skills/lg-package/dispatch.md": 1420,
+    ".claude/skills/lg-package/handover.md": 1300,
+    ".claude/skills/lg-package/close.md": 1060,
+    ".claude/skills/lg-package/retro.md": 540,
     ".claude/skills/lg-design/SKILL.md": 2100,
     ".claude/skills/lg-design/consolidate.md": 1000,
-    ".claude/skills/lg-design/rounds-and-triage.md": 650,
+    ".claude/skills/lg-design/rounds-and-triage.md": 750,
     ".claude/skills/lg-design/working-documents-and-backlog.md": 480,
     ".claude/skills/lg-feedback/SKILL.md": 1400,
     ".claude/skills/lg-bootstrap/SKILL.md": 1450,
     ".claude/skills/lg-bootstrap/interview.md": 650,
     ".claude/skills/lg-bootstrap/adopt.md": 500,
-    ".claude/agents/chunk.md": 1200,
-    ".claude/agents/fix.md": 650
+    ".claude/agents/chunk.md": 1250,
+    ".claude/agents/fix.md": 650,
+    ".claude/agents/dig.md": 450
   },
   "core": [
     "LEANGROUND.md",
@@ -59,6 +61,7 @@
     ".claude/skills/lg-bootstrap/",
     ".claude/agents/chunk.md",
     ".claude/agents/fix.md",
+    ".claude/agents/dig.md",
     ".githooks/"
   ]
 }

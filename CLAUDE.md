@@ -14,7 +14,8 @@ Read the lines that apply, then stop. Notes are in `docs/agent-notes/`; read the
 - **Changing the design, open questions, rounds, loose ends:** the lg-design skill.
 - **A batch of the owner's notes or polish requests:** the lg-feedback skill.
 - **Implementation:** `python tools/docs.py where <system>` for where a system's code, tests and data are, `where "recipe: <kind>"` for the files a new kind of thing touches; `working-agreements.md` "Build and verify". Code you only call: `python tools/docs.py sig <name>`, never a Read; a file you will edit: whole when short, else its imports and the ranges you change.
-- **Committing or handing off:** `working-agreements.md` "Commits and handoffs".
+- **An investigation (a hang, a leak, an unexplained failure) or an unattended run:** `working-agreements.md` "Debugging and investigations"; notes in `docs/investigations/`.
+- **Committing or handing off:** `working-agreements.md` "Commits and handoffs"; a session's context ceiling, "Sessions and cost".
 - **How the owner likes to work:** `working-agreements.md` "Owner preferences".
 - **Something delivered:** `docs/archive/` (its `README.md` indexes it). Never authoritative.
 
@@ -25,5 +26,5 @@ Read the lines that apply, then stop. Notes are in `docs/agent-notes/`; read the
 - **Record questions, don't ask them:** a design choice found during any work becomes a numbered question in `DESIGN.md` 6.2; a loose end left unfixed goes in 6.7.
 - **Debugging:** after two failed fixes for one symptom, stop guessing and add labelled diagnostics. Measure; never adopt a placeholder number.
 - **Editing:** Edit for existing files, Write for new ones; never write files through the shell. Match the surrounding code's style and comment density.
-- **Commits:** commit at logical checkpoints and push each commit to `{{BRANCH}}` once it is made: leave to commit is leave to push. A package's commit subject leads with its id and name. End with a blank line and the trailer naming the model that made the commit: `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+- **Commits:** commit at logical checkpoints and push each commit to `{{BRANCH}}` once it is made: leave to commit is leave to push. A package's commit subject leads with its id and name. End with a blank line and a trailer naming the model that made the commit, e.g. `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 <!-- bootstrap: drop the push clause above if the owner pushes by hand. Then add the project's own always-rules, one bullet each, citing their DESIGN.md section: its layering rule (section 3), performance rules (7), safety rules ("never deploy", "never create a database without approval"), public-repository rules (2). Keep this file within its budget: `python tools/docs.py budget`. -->
