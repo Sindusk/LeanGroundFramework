@@ -1,7 +1,7 @@
 """commit-msg hook (.githooks/commit-msg): a commit message ends with a Co-Authored-By trailer naming the model
 that made the commit, as CLAUDE.md "Commits" says.
 
-`git config core.hooksPath .githooks` turns it on (the bootstrap skill does). Set "commit_trailer": false in
+`git config core.hooksPath .githooks` turns it on (the lg-bootstrap skill does). Set "commit_trailer": false in
 tools/leanground.json to turn the trailer rule off, and "commit_body": true to require a body as well.
 Standard library only.
 """

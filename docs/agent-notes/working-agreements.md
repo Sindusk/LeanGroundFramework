@@ -8,7 +8,7 @@ How work runs in this repository. `CLAUDE.md` routes here; read the section your
 
 - **The ledger** (`LEDGER.md` at the root) is one line per item, grouped Work-Ready, Designed, Undesigned, as `- **Name** — where it stands`, with an indented `{{PREFIX}}-` line for each package an Initiative owns and an indented path to the file its design is worked out in. The owner reads it as raw text: no tables, no links, no detail on the lines (its Contents section is the one place links are allowed). Details live in the item's block under the Initiatives heading below the ledger, a `### Name` heading matching its ledger name, with each package as a `- **{{PREFIX}}-n Name.**` item in its Initiative's block. A standalone package is an unindented `- {{PREFIX}}-n Name (builder) — where it stands` line in its group, with its block under `### Standalone Work Packages`. Where an item stands is written on its ledger line and nowhere else: no heading, block, commit subject or note repeats it. `python tools/docs.py check` enforces the format, the pairing of lines and blocks, and the next free ID; run it after every ledger edit.
 - **Who decides what.** The agent keeps the words after the dash true as work proceeds. Moving an item between groups, starting work on a Work-Ready item, approving finished work (which removes it from the ledger and writes its delivery record) and marking a Release done are the owner's decisions; the agent makes the edit when told. Don't infer a decision from approval of adjacent work or a passing build.
-- **Cutting, building and closing** a package or Initiative are the package skill's: `.claude/skills/package/`.
+- **Cutting, building and closing** a package or Initiative are the lg-package skill's: `.claude/skills/lg-package/`.
 - **Claiming an ID.** The ledger is the only allocator: an ID exists once a line carrying it is committed; the ledger states the next free number; retired numbers are never reused.
 - **Builders and reviews.** Each package line names its builder by exact model name, "(Claude Opus 5.5)". The owner decides per Initiative or package whether a line also names a reviewer, "(Claude Sonnet 5.5, reviewed by Claude Opus 5.5)"; a build is never reviewed by its own model.
 - **Naming.** A package's commit subject leads with its ID and name ("{{PREFIX}}-nnn Search filters: …"); ordinary work uses an ordinary subject.
@@ -27,7 +27,7 @@ How work runs in this repository. `CLAUDE.md` routes here; read the section your
 ## Open questions and loose ends
 
 - **Open design questions live in `DESIGN.md` 6.2**, with the idea backlog, under permanent numbers that other documents cite (the next free number is stated there). A question that is answered is removed at consolidation, not struck through; git keeps its text. Never renumber the rest. Numeric tuning questions live in `DESIGN.md` section 11.
-- **Record questions, don't ask them in chat.** A design choice found during any work is written into 6.2 as a numbered question and cited from the design text and ledger lines; the reply only points at the numbers. A design round is the exception: once written, its questions are put to the owner in chat (the design skill). Otherwise only non-design housekeeping, such as whether to delete a file, is asked in chat.
+- **Record questions, don't ask them in chat.** A design choice found during any work is written into 6.2 as a numbered question and cited from the design text and ledger lines; the reply only points at the numbers. A design round is the exception: once written, its questions are put to the owner in chat (the lg-design skill). Otherwise only non-design housekeeping, such as whether to delete a file, is asked in chat.
 - **Questions may be left for a collaborator** named in `tools/leanground.json`, who answers with their own agent. When the owner says so, leave the questions open and record no decision, say so in a note in 6.2 and as "left for <name>" on the Initiative's ledger line, and write each question to stand alone (gap, candidates, recommendation, cost of being wrong) for an agent reading it cold.
 - **Known issues live in `DESIGN.md` 6.7**, not in session handoffs. When a session finds a loose end it is not fixing (documentation that disagrees with the code, a TODO, a harmless warning, a check not yet done), add it there. When one is fixed, remove its line.
 
@@ -54,7 +54,7 @@ How work runs in this repository. `CLAUDE.md` routes here; read the section your
 
 ## Manual checks
 
-What a test can't show (look, feel, layout, sound, a real device, a third-party service) is checked by the owner from a checklist the package skill's `handover.md` writes. A launch of the app for a manual check always waits for the owner's go-ahead, and so does a relaunch.
+What a test can't show (look, feel, layout, sound, a real device, a third-party service) is checked by the owner from a checklist the lg-package skill's `handover.md` writes. A launch of the app for a manual check always waits for the owner's go-ahead, and so does a relaunch.
 <!-- bootstrap: how the owner runs the app for a check (the run command, a fixture or seed that sets up the state a checklist needs, debug controls), and whether a dev server they keep running should be reused rather than started. -->
 
 ## Commits and handoffs

@@ -1,6 +1,6 @@
 ---
 name: chunk
-description: Builds one chunk of a Work Package from a brief file the managing session wrote. Dispatched by the package skill's dispatch.md; not for other work.
+description: Builds one chunk of a Work Package from a brief file the managing session wrote. Dispatched by the lg-package skill's dispatch.md; not for other work.
 tools: Read, Edit, Write, Bash, PowerShell, Grep, Glob
 model: opus
 ---

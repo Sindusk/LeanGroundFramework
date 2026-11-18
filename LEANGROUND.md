@@ -6,7 +6,7 @@ A starting kit for a project built entirely through AI agents: a routing `CLAUDE
 
 1. **Scaffold:** layout, `AGENTS.md`, `CLAUDE.md`, `DESIGN.md`, `LEDGER.md`, history, questions, agent notes, `tools/leanground.json`. Done.
 2. **Tooling:** `tools/docs.py` (with `tools/docs_sig.py`, the `sig` adapters for Java, Python and TypeScript/JavaScript, and a `tools/project_docs.py` plugin hook); the hooks in `.claude/settings.json` (`tools/search_gate.py`, `tools/edit_gate.py`, `tools/stop_check.py`); `.githooks/commit-msg` (`tools/commit_msg.py`); tests in `tools/test_docs.py` and `tools/test_hooks.py`. Done.
-3. **Skills and agents:** `.claude/skills/` `package` (cut, build, handover, close, retro, dispatch for oversized packages, `why.md`), `design` (raise, round, record, consolidate, triage, working documents), `feedback` (loose notes, sorted by size) and `bootstrap` (interview, adopting existing code); `.claude/agents/` `chunk` and `fix`. Budgets in `tools/leanground.json`, enforced by `docs.py check`. Done.
+3. **Skills and agents:** `.claude/skills/` `lg-package` (cut, build, handover, close, retro, dispatch for oversized packages, `why.md`), `lg-design` (raise, round, record, consolidate, triage, working documents), `lg-feedback` (loose notes, sorted by size) and `lg-bootstrap` (interview, adopting existing code); `.claude/agents/` `chunk` and `fix`. Budgets in `tools/leanground.json`, enforced by `docs.py check`. Done.
 4. **Dry run:** a throwaway project bootstrapped and one package taken from cut to close; the cost measured and the kit fixed. Done (below).
 
 ## The dry run (2026-10-27)
@@ -32,7 +32,7 @@ Copy everything except `.git` into the new project's folder, then open a session
 robocopy <framework folder> <new project folder> /E /XD .git
 ```
 
-The bootstrap skill runs `git init` if needed and `git config core.hooksPath .githooks`, interviews the owner, replaces the `{{…}}` placeholders, fills every `<!-- bootstrap: … -->` comment in the documents (then deletes the comment), writes `tools/leanground.json`'s project fields, seeds the ledger's Undesigned group, runs `python tools/docs.py check` and makes the first commit. `check` refuses a placeholder or bootstrap comment left behind once `leanground.json` says `"bootstrapped": true`.
+The lg-bootstrap skill runs `git init` if needed and `git config core.hooksPath .githooks`, interviews the owner, replaces the `{{…}}` placeholders, fills every `<!-- bootstrap: … -->` comment in the documents (then deletes the comment), writes `tools/leanground.json`'s project fields, seeds the ledger's Undesigned group, runs `python tools/docs.py check` and makes the first commit. `check` refuses a placeholder or bootstrap comment left behind once `leanground.json` says `"bootstrapped": true`.
 
 ## Core files and project files
 
@@ -42,7 +42,7 @@ The bootstrap skill runs `git init` if needed and `git config core.hooksPath .gi
 |---|---|
 | `LEANGROUND.md`, `AGENTS.md` | core |
 | `tools/docs.py`, `tools/docs_sig.py`, the hooks' scripts, their tests, `.gitattributes` | core |
-| `.claude/skills/{package,design,feedback,bootstrap}/`, `.claude/agents/{chunk,fix}.md`, `.githooks/` | core |
+| `.claude/skills/lg-{package,design,feedback,bootstrap}/`, `.claude/agents/{chunk,fix}.md`, `.githooks/` | core |
 | `CLAUDE.md`, `DESIGN.md`, `LEDGER.md`, `design-history.md`, `design-questions.md` | project |
 | `docs/agent-notes/*`, `docs/archive/README.md` | project |
 | `tools/leanground.json` (its project fields), `tools/project_docs.py` | project |
@@ -53,7 +53,7 @@ The bootstrap skill runs `git init` if needed and `git config core.hooksPath .gi
 `tools/leanground.json` holds what the tools and skills need to know about the project:
 
 - `project`, `prefix`, `owner`, `collaborators`, `branch`: names the documents and tools use; `prefix` builds package ids (`AZ-104`).
-- `bootstrapped`: false until the bootstrap skill finishes; then `check` refuses any placeholder left.
+- `bootstrapped`: false until the lg-bootstrap skill finishes; then `check` refuses any placeholder left.
 - `push_on_commit`, `commit_trailer`, `commit_body`: the commit rules the Stop and commit-msg hooks enforce.
 - `shell`: the primary shell, for the documents' command examples.
 - `source_roots`: where the code lives, for `sig`, `close`'s record and `check`'s citations; empty means every tracked file.

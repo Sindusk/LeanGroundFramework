@@ -1,10 +1,10 @@
 ---
-name: feedback
+name: lg-feedback
 description: A polish pass over the owner's loose notes — a pasted list of things to change, review notes, "some things I noticed" — worked outside any Work Package. Triage each note by size, ask the owner once, send small mechanical items to fix subagents, build the rest inline, verify once for the whole pass, commit. Use whenever the owner hands over a list of feedback, notes or polish items, even when the request never says "feedback".
 argument-hint: "[the notes, pasted]"
 ---
 
-# feedback
+# lg-feedback
 
 A pass is a list of the owner's notes, each a small user-facing change, with no package id (`working-agreements.md`: a package only for an Initiative's component). `CLAUDE.md` binds every step.
 

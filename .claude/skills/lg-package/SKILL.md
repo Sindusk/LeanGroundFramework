@@ -1,10 +1,10 @@
 ---
-name: package
+name: lg-package
 description: Run Work Packages through their lifecycle — cut a Work-Ready Initiative into packages, build one (rules first, code, tests, manual check), close it on the owner's approval with its delivery record, close an Initiative when its last package lands, and run retros. Use whenever the task names a package id from LEDGER.md, says "build", "cut", "close" or "approve" about a package or Initiative, asks for a retro, or edits LEDGER.md.
 argument-hint: "[XX-nnn | cut <Initiative> | close XX-nnn | retro]"
 ---
 
-# package
+# lg-package
 
 How a Work Package is cut, built and closed. `XX` stands for the project's package prefix (`tools/leanground.json`). This skill and the stage files beside it are the procedure's one home; `working-agreements.md` "Initiatives and Work Packages" holds the ledger's format, and `DESIGN.md` 6's opening (`python tools/docs.py 6 --own`) the concepts. **Docs, tooling, cleanups and fixes are just work: no package, no id, no ledger line.**
 
@@ -31,7 +31,7 @@ Precondition: its line says `can be built` and the owner said to start.
    - **Code you only call:** `python tools/docs.py sig <Name> …`, several in one call; never Read it. **A sibling to copy:** Read it whole; `sig` the rest.
    - **Code you will edit:** whole when short (under ~150 lines) or changed throughout; otherwise `sig`, then its imports and the ranges you change (`sig Name:member` prints one member with line numbers).
    - **The seam map:** a lookup needing more than one Grep (every caller of a changed API) goes to one Explore agent with `model: "haiku"`, for sites as `file:line`, never judgements.
-2. **Start; the rules first.** Make the package's rules exact in the system's **Built rules** subsection of `DESIGN.md` section 4 (and section 7 if it has a cost), with a history row `| date | XX-nnn Name, the rules (sections): <the rules> | <why; the builder's choices> |` written to a scratch file and added by `python tools/docs.py history add <file>`; then `python tools/docs.py status XX-nnn being built`, whose check needs that row. A new heading gets its Contents line (`toc DESIGN.md`). Work out a table's numbers before writing it in. A fork the block leaves open: a design choice is raised as a question (the design skill) and stops the build if it changes scope; a builder's choice is decided, written into the rules and the row's reason, and listed in the handover under "Defaults I chose". Check and commit only if the check passes: `XX-nnn Name: start building; the rules`.
+2. **Start; the rules first.** Make the package's rules exact in the system's **Built rules** subsection of `DESIGN.md` section 4 (and section 7 if it has a cost), with a history row `| date | XX-nnn Name, the rules (sections): <the rules> | <why; the builder's choices> |` written to a scratch file and added by `python tools/docs.py history add <file>`; then `python tools/docs.py status XX-nnn being built`, whose check needs that row. A new heading gets its Contents line (`toc DESIGN.md`). Work out a table's numbers before writing it in. A fork the block leaves open: a design choice is raised as a question (the lg-design skill) and stops the build if it changes scope; a builder's choice is decided, written into the rules and the row's reason, and listed in the handover under "Defaults I chose". Check and commit only if the check passes: `XX-nnn Name: start building; the rules`.
    **Then `python tools/docs.py context`.** Past the threshold it prints, or when the plan spans more than about 20 files, the build goes to subagents: `dispatch.md`.
 3. **Build** in logical commits, each `XX-nnn Name: <what it does>`.
    - **Declare before use:** new types first, then the members others call, then their callers; imports in the same edit as their first use.
@@ -50,4 +50,4 @@ Precondition: its line says `can be built` and the owner said to start.
 - One line to the owner at each stage's start: reading done, rules committed, build running, fixtures written.
 - Search and read tracked files with Grep, `git grep`, Read and `tools/docs.py`; the hooks refuse the shell's readers and shell edits. Whether something is planned: `git grep -n -i <word> -- LEDGER.md`.
 - A lesson waits in `docs/agent-notes/lessons.md` for a retro (`close.md` step 3); a package session changes no skill, note or tool for it, unless it blocks the package under way.
-- Design choices found while cutting or building go into `DESIGN.md` 6.2 as numbered questions (the design skill), never asked in chat.
+- Design choices found while cutting or building go into `DESIGN.md` 6.2 as numbered questions (the lg-design skill), never asked in chat.

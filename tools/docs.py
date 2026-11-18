@@ -59,7 +59,7 @@ Run from the repository root:
                                                        of them repeat
     python tools/docs.py context                       this session's context at its last request and its peak,
                                                        from the newest transcript of this checkout, against the
-                                                       size past which the package skill hands a build to a subagent
+                                                       size past which the lg-package skill hands a build to a subagent
     python tools/docs.py status XX-nnn being built     writes a package's status on its ledger line, then checks
     python tools/docs.py close XX-nnn [--steps 14] [--date 2026-10-23]
                        [--delivered "the delivered search index (4.2.1)"]
@@ -1148,7 +1148,7 @@ def find_problems(repo, files, sources=()):
         for n, found in unfenced_matches(load(name, repo), PLACEHOLDER):
             left += 1
             if settings["bootstrapped"]:
-                problems.append((name, n, f"still holds {found}; fill it in (the bootstrap skill says how)"))
+                problems.append((name, n, f"still holds {found}; fill it in (the lg-bootstrap skill says how)"))
     if settings["bootstrapped"] and "{{" in json.dumps({k: v for k, v in settings.items() if k != "core"}):
         problems.append((CONFIG, 1, "still holds a {{placeholder}}; set the project's values"))
 
@@ -1186,7 +1186,7 @@ def find_problems(repo, files, sources=()):
     summary = (f"Checked {len(ledger.items)} ledger items, {len(ledger.packages)} packages and {cited} section"
                f" citations across {len(live)} documents and {len(sources)} source files.")
     if left and not settings["bootstrapped"]:
-        summary += f" Not bootstrapped yet: {left} placeholders wait for the bootstrap skill."
+        summary += f" Not bootstrapped yet: {left} placeholders wait for the lg-bootstrap skill."
     return problems, summary
 
 
@@ -1327,7 +1327,7 @@ def show_context(repo):
     past = config(repo)["subagent_build_past"]
     print(f"session {newest.stem[:8]}: {last // 1000}k of context at the last request, peak {peak // 1000}k,"
           f" {requests} requests")
-    print(f"at the rules commit, past {past // 1000}k a subagent builds (the package skill)")
+    print(f"at the rules commit, past {past // 1000}k a subagent builds (the lg-package skill)")
     return 0
 
 

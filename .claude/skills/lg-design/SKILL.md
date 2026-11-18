@@ -1,10 +1,10 @@
 ---
-name: design
+name: lg-design
 description: Run design work — raise open questions in DESIGN.md 6.2, write question rounds, assess where ledger items stand, record the owner's answers, consolidate decisions into the design and its history, open an Initiative's working document. Use when the task changes what the product should do (a rule, a system, a behaviour), when the owner says "round", "record the answers" or "consolidate" or asks a design question, and before code that needs a rule DESIGN.md doesn't state.
 argument-hint: "[raise | round | record | consolidate | triage]"
 ---
 
-# design
+# lg-design
 
 How a design question moves from gap to rule. Standing rules: `working-agreements.md` "Design changes" and "Open questions and loose ends", and `DESIGN.md` 6.2's opening.
 

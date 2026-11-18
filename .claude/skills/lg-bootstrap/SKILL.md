@@ -1,10 +1,10 @@
 ---
-name: bootstrap
+name: lg-bootstrap
 description: Turn a fresh copy of the Lean Ground Framework into this project's own — interview the owner, fill DESIGN.md, LEDGER.md, CLAUDE.md, the agent notes and tools/leanground.json, set up git and its hooks, and make the first commit. Use when tools/leanground.json says "bootstrapped": false, or the owner says "bootstrap", "set up the project" or "start a new project".
 argument-hint: "[a pitch, or the path of existing code to adopt]"
 ---
 
-# bootstrap
+# lg-bootstrap
 
 Run once per project, in a session of its own. The kit's documents hold `{{PROJECT}}`, `{{PREFIX}}`, `{{OWNER}}` and `{{BRANCH}}` placeholders and `<!-- bootstrap: … -->` comments saying what belongs in each spot; this skill fills every one, then deletes the comment. `LEANGROUND.md` explains the kit. The skeletons are small, so this is the one task that reads `DESIGN.md` and `LEDGER.md` whole; every later task reads them by block.
 
@@ -23,7 +23,7 @@ Follow `interview.md`: one message of free-text questions, then one AskUserQuest
 
 ## 3. Fill the documents
 
-Edit each file with the Edit tool (`replace_all` for a placeholder), never the shell. In this order, so each later file can cite the earlier:
+Edit each file with the Edit tool (`replace_all` for a placeholder), never the shell, in this order, so each can cite the earlier:
 
 1. **`tools/leanground.json`:** `project`, `prefix`, `owner`, `collaborators`, `branch`, `push_on_commit`, `shell`, `source_roots`, the `commands` (`LEANGROUND.md` "Settings" says what each means), `commit_body`. Leave `bootstrapped` false until step 6.
 2. **`DESIGN.md`:** the title line, sections 1 to 3; one `### 4.n` heading per system with a paragraph of intent; 5 and 7 to 10 ("None yet." where the owner has nothing); 6.5's first release if named. Section numbers 1 to 11 never change: tools and agents cite them. Contents: `python tools/docs.py toc DESIGN.md`.
@@ -51,4 +51,4 @@ Write every design choice the interview left open as drafts, one per topic (`## 
 3. `python -m unittest tools/test_docs.py tools/test_hooks.py`.
 4. Show the owner a summary: the systems and Initiatives written, the questions raised by number, the defaults chosen, and the permissions to add (step 3.8). Commit `Bootstrap <project> from the Lean Ground Framework` with the trailer `CLAUDE.md` names; push only if a remote exists and `push_on_commit` is set.
 
-Then stop: the next session is the first design round (the design skill) for the Initiative wanted first.
+Then stop: the next session is the first design round (the lg-design skill) for the Initiative wanted first.

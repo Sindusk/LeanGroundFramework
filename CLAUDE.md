@@ -8,11 +8,11 @@ Read the lines that apply, then stop. Notes are in `docs/agent-notes/`; read the
 
 **Read one block at a time with `python tools/docs.py`:** a design section (`4.2`), a package (`{{PREFIX}}-nnn`), an Initiative (`"<name>"`), a question (`q12`), a system's code (`where <system>`); `python tools/docs.py help [command]` for the rest. Don't open or print `DESIGN.md` or `LEDGER.md` whole, by any tool (`python tools/docs.py ledger` gives the ledger's lines). Brief a subagent with the `docs.py` commands it needs, not files to read, and give a long session's next stage a new session. A section or package a block cites is a lookup for when the work needs it, not an instruction to read it.
 
-- **A new project** (`tools/leanground.json` says `"bootstrapped": false`): the bootstrap skill, before anything else.
+- **A new project** (`tools/leanground.json` says `"bootstrapped": false`): the lg-bootstrap skill, before anything else.
 - **Anything:** the `DESIGN.md` section for the system you touch. Section 4's **Built rules** subsections are what the code does; 2 is the constraints, 6 the roadmap, 7 performance.
-- **Cutting, building or closing a Work Package or Initiative:** the package skill, which holds the procedure; it starts a build with `python tools/docs.py {{PREFIX}}-nnn`. **The ledger's format and who decides:** `working-agreements.md`, "Initiatives and Work Packages". After editing `LEDGER.md`, run `python tools/docs.py check`.
-- **Changing the design, open questions, rounds, loose ends:** the design skill.
-- **A batch of the owner's notes or polish requests:** the feedback skill.
+- **Cutting, building or closing a Work Package or Initiative:** the lg-package skill, which holds the procedure; it starts a build with `python tools/docs.py {{PREFIX}}-nnn`. **The ledger's format and who decides:** `working-agreements.md`, "Initiatives and Work Packages". After editing `LEDGER.md`, run `python tools/docs.py check`.
+- **Changing the design, open questions, rounds, loose ends:** the lg-design skill.
+- **A batch of the owner's notes or polish requests:** the lg-feedback skill.
 - **Implementation:** `python tools/docs.py where <system>` for where a system's code, tests and data are, `where "recipe: <kind>"` for the files a new kind of thing touches; `working-agreements.md` "Build and verify". Code you only call: `python tools/docs.py sig <name>`, never a Read; a file you will edit: whole when short, else its imports and the ranges you change.
 - **Committing or handing off:** `working-agreements.md` "Commits and handoffs".
 - **How the owner likes to work:** `working-agreements.md` "Owner preferences".

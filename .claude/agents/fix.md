@@ -1,6 +1,6 @@
 ---
 name: fix
-description: Builds one small item of a feedback pass from a brief file the feedback skill wrote. Dispatched by .claude/skills/feedback/SKILL.md; not for other work.
+description: Builds one small item of a feedback pass from a brief file the lg-feedback skill wrote. Dispatched by .claude/skills/lg-feedback/SKILL.md; not for other work.
 tools: Read, Edit, Write, Bash, PowerShell, Grep, Glob
 model: sonnet
 ---

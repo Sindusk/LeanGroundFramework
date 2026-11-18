@@ -6,7 +6,7 @@ When an Initiative's design outgrows a few questions: one file under `docs/initi
 
 **Consolidating from it:** also trim what it described that `DESIGN.md` now states to a pointer at the sections, and update its "Where it stands" (what is consolidated, what is still open, whether it is cut). Update the 6.2 note naming its questions.
 
-When the Initiative closes, the document moves unedited to `docs/archive/initiatives/` beside its record (the package skill's `close.md`).
+When the Initiative closes, the document moves unedited to `docs/archive/initiatives/` beside its record (the lg-package skill's `close.md`).
 
 ## The idea backlog
 
