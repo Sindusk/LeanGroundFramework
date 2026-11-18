@@ -6,7 +6,7 @@ A starting kit for a project built entirely through AI agents: a routing `CLAUDE
 
 1. **Scaffold:** layout, `AGENTS.md`, `CLAUDE.md`, `DESIGN.md`, `LEDGER.md`, history, questions, agent notes, `tools/leanground.json`. Done.
 2. **Tooling:** `tools/docs.py` (with `tools/docs_sig.py`, the `sig` adapters for Java, Python and TypeScript/JavaScript, and a `tools/project_docs.py` plugin hook); the hooks in `.claude/settings.json` (`tools/search_gate.py`, `tools/edit_gate.py`, `tools/stop_check.py`); `.githooks/commit-msg` (`tools/commit_msg.py`) and `.githooks/pre-commit` (`tools/pre_commit.py`); tests in `tools/test_docs.py` and `tools/test_hooks.py`. Done.
-5. **Verify and commit tools:** `tools/verify.py`, the package gate: runs `verify_steps` in order, each command's output to a log under `working/verify/`, one console line per step, stops at the first failure naming the steps not run, and writes `working/verify/summary.md` (overwritten at the start of every run, a refused one included), which is read in place of any log; `--resume` reruns from the failed step, `--only <name>` one step, `--list` the steps. `tools/commit.py -F <message file> -- <path> …` commits exactly the named paths as the working tree holds them through a temporary index, so another session's staged or unstaged work never reaches the commit, and runs the commit-msg and pre-commit checks itself; `--push` pushes when `push_on_commit` is set. Tests in `tools/test_verify.py` and `tools/test_commit.py`. Each tool's header gives its exact usage and exit codes.
+5. **Verify and commit tools:** `tools/verify.py`, the package gate: runs `verify_steps` in order, each command's output to a log under `working/verify/`, one console line per step, stops at the first failure naming the steps not run, and writes `working/verify/summary.md` (overwritten at the start of every run, a refused one included), which is read in place of any log; `--resume` reruns from the failed step, `--only <name>` one step, `--list` the steps. `tools/commit.py -F <message file> -- <path> …` commits exactly the named paths as the working tree holds them through a temporary index, so another session's staged or unstaged work never reaches the commit, and runs the commit-msg and pre-commit checks itself; `--push` pushes when `push_on_commit` is set. `tools/upgrade.py <kit folder>` takes a newer kit's core files into a project (below). Tests in `tools/test_verify.py`, `tools/test_commit.py` and `tools/test_upgrade.py`. Each tool's header gives its exact usage and exit codes.
 3. **Skills and agents:** `.claude/skills/` `lg-package` (cut, build in one session, handover, close, retro, dispatch for oversized packages, `why.md`), `lg-design` (raise, round, record, consolidate, triage, working documents), `lg-feedback` (loose notes, sorted by size) and `lg-bootstrap` (interview, adopting existing code); `.claude/agents/` `chunk`, `fix` and `dig` (a read-only log reader). Budgets in `tools/leanground.json`, enforced by `docs.py check`. Done.
 4. **Dry run:** a throwaway project bootstrapped and one package taken from cut to close; the cost measured and the kit fixed. Done (below).
 
@@ -37,17 +37,21 @@ The lg-bootstrap skill runs `git init` if needed and `git config core.hooksPath 
 
 ## Core files and project files
 
-**Core** files are the kit's: a project never edits them, and upgrading the project replaces them with the framework's newer copy. A project needing different behaviour adds a project file beside them (a `tools/project_docs.py` command, a project skill) rather than editing core. **Project** files start as skeletons and belong to the project once bootstrapped; an upgrade never touches them. `tools/leanground.json` lists the core files under `"core"`.
+**Core** files are the kit's: a project never edits them, and `tools/upgrade.py` takes the framework's newer copy of them (see "Upgrading a project"). A project needing different behaviour adds a project file beside them (a `tools/project_docs.py` command, a project skill) rather than editing core. **Project** files start as skeletons and belong to the project once bootstrapped; an upgrade never touches them. `tools/leanground.json` lists the core files under `"core"`.
 
 | File | Kind |
 |---|---|
 | `LEANGROUND.md`, `AGENTS.md` | core |
-| `tools/docs.py`, `tools/docs_sig.py`, `tools/verify.py`, `tools/commit.py`, the hooks' scripts, their tests, `.gitattributes` | core |
+| `tools/docs.py`, `tools/docs_sig.py`, `tools/verify.py`, `tools/commit.py`, `tools/upgrade.py`, the hooks' scripts, their tests, `.gitattributes` | core |
 | `.claude/skills/lg-{package,design,feedback,bootstrap}/`, `.claude/agents/{chunk,fix,dig}.md`, `.githooks/` | core |
 | `CLAUDE.md`, `DESIGN.md`, `LEDGER.md`, `design-history.md`, `design-questions.md` | project |
 | `docs/agent-notes/*`, `docs/archive/README.md`, `docs/investigations/README.md` | project |
 | `tools/leanground.json` (its project fields), `tools/project_docs.py` | project |
 | `.claude/settings.json`: its hooks are the kit's, its permissions the project's | both |
+
+## Upgrading a project
+
+From the project, with the newer kit checked out beside it: `python tools/upgrade.py <kit folder>` prints the plan and changes nothing; `--apply` does it. (A project older than the tool runs the kit's copy: `python <kit folder>/tools/upgrade.py <kit folder>`.) Each core file is identical, new (added), changed in the kit and unedited here (replaced), edited here and unchanged in the kit (kept), or a conflict: changed in both, never overwritten unless named with `--theirs <path>` (`--ours <path>` keeps the project's), the plan printing both sides' change sizes and the `git diff --no-index` that shows them. "Edited here" needs the kit commit the project last took, `kit_version`; with none recorded every difference is a possible conflict until `--base <commit>` names it. A skill the project renamed is mapped with `core_paths`, and the plan proposes the mapping rather than copying the skill under the kit's name; copied text has the skill names rewritten. It never replaces `tools/leanground.json` (it adds missing keys, `core` and `budgets` entries), never touches a non-core file, deletes a file the kit dropped only with `--remove`, refuses when a file it would write has uncommitted changes, runs `docs.py check` and the tests after an apply, and never commits: review `git diff --stat`, then commit.
 
 ## Settings
 
@@ -55,13 +59,15 @@ The lg-bootstrap skill runs `git init` if needed and `git config core.hooksPath 
 
 - `project`, `prefix`, `owner`, `collaborators`, `branch`: names the documents and tools use; `prefix` builds package ids (`AZ-104`).
 - `bootstrapped`: false until the lg-bootstrap skill finishes; then `check` refuses any placeholder left.
+- `kit_version`: the kit commit the project's core files were last taken from, which `tools/upgrade.py` records after a clean apply and compares against to tell a project's edit from an older kit; empty in the kit and until the first upgrade.
+- `core_paths`: kit path prefixes to the project's, for core files the project keeps under another name (`{".claude/skills/lg-package/": ".claude/skills/mm-package/"}`); `tools/upgrade.py` maps through it and rewrites the skill names in the text it copies. Empty means the kit's paths.
 - `push_on_commit`, `commit_trailer`, `commit_body`: the commit rules the Stop and commit-msg hooks and `tools/commit.py` enforce; `commit.py --push` pushes only when `push_on_commit` is true.
 - `shell`: the primary shell, for the documents' command examples.
 - `source_roots`: where the code lives, for `sig`, `close`'s record and `check`'s citations; empty means every tracked file.
 - `long_file_lines`: past this, the search gate refuses a whole Read of a source file.
 - `shell_read_paths`: globs, relative to the repository root (`docs/data/*.csv`), of small tracked data files the search gate lets the shell read beside a command; empty by default.
 - `shell_window_lines`: the largest line window (`sed -n`, `head`, `tail`, `awk` on `NR`) of a tracked file the search gate lets the shell print; 60 by default.
-- `section_cap`: tokens past which `docs.py` prints a design section with subsections as its own text and their menu, never whole; 5,000 by default.
+- `section_cap`: tokens past which `docs.py` prints a design section as its own text and its subsections' menu, never whole; text still over it prints as an outline of its points (paragraphs, list items, tables, fenced blocks), read with `--points 3,7-9` or `--grep`. 5,000 by default.
 - `handoff_past`: every session's context ceiling, which `docs.py context` reports against; past it, the session finishes the item in hand and gives the owner a paste-ready prompt for a new session. 200,000 by default.
 - `retro_after_lessons`: past this many lessons queued in `docs/agent-notes/lessons.md`, `check` notes that a retro is due (a notice, never a failure); 15 by default.
 - `test_report`: the JUnit-style XML report the test runner writes (a path, a folder or a glob), read by `docs.py failures`; empty until the project sets one.

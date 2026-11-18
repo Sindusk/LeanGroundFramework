@@ -1,6 +1,8 @@
 {
   "leanground_version": "0.1.0",
   "bootstrapped": false,
+  "kit_version": "",
+  "core_paths": {},
   "project": "{{PROJECT}}",
   "prefix": "{{PREFIX}}",
   "owner": "{{OWNER}}",
@@ -71,6 +73,8 @@
     "tools/test_verify.py",
     "tools/commit.py",
     "tools/test_commit.py",
+    "tools/upgrade.py",
+    "tools/test_upgrade.py",
     ".gitattributes",
     ".claude/skills/lg-package/",
     ".claude/skills/lg-design/",
