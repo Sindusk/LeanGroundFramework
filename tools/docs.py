@@ -60,7 +60,8 @@ Run from the repository root:
     python tools/docs.py context                       this session's context at its last request and its peak,
                                                        from the newest transcript of this checkout, against the
                                                        size past which the lg-package skill hands a build to a subagent
-    python tools/docs.py status XX-nnn being built     writes a package's status on its ledger line, then checks
+    python tools/docs.py status XX-nnn being built     writes a package's status on its ledger line, then checks;
+                                                       a status the ledger check would fault is not written
     python tools/docs.py close XX-nnn [--steps 14] [--date 2026-10-23]
                        [--delivered "the delivered search index (4.2.1)"]
                                                        closes an approved package: removes its line and block,
@@ -69,9 +70,10 @@ Run from the repository root:
                                                        leaving possessives to reword), adds the history row,
                                                        appends its section to its record (created if new) with
                                                        the block quoted unedited, the manual check's passing
-                                                       steps and (from git) the files it changed and each test
-                                                       file with its new tests as words, and TODOs for the rest
-                                                       of the prose; adds it to the archive index, then checks
+                                                       steps and (from its own commits) the files it changed
+                                                       and each test file with its new tests as words, and
+                                                       TODOs for the rest of the prose; adds it to the archive
+                                                       index, then checks
     python tools/docs.py close-initiative "Search Filters" [--date 2026-10-23]
                                                        closes an approved Initiative whose packages have all
                                                        closed: removes its line, Contents entry and block, drops
@@ -270,11 +272,12 @@ class Doc:
 def tracked(repo=REPO, *patterns):
     """The repository's files as git sees them: committed or staged, and new files not gitignored, so a file is
     read before its first commit. Exits with a reason outside a git repository."""
-    out = subprocess.run(["git", "ls-files", "--cached", "--others", "--exclude-standard", "--deduplicate", *patterns],
-                         cwd=repo, capture_output=True, encoding="utf-8", errors="replace")
+    # -z: names unquoted and NUL-separated, so a name outside ASCII (café.md) is not escaped past is_file.
+    out = subprocess.run(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--deduplicate",
+                          *patterns], cwd=repo, capture_output=True, encoding="utf-8", errors="replace")
     if out.returncode != 0:
         raise SystemExit(f"{Path(repo)} is not a git repository: run git init first. ({out.stderr.strip()})")
-    return [line for line in out.stdout.splitlines() if line and (Path(repo) / line).is_file()]
+    return [name for name in out.stdout.split("\0") if name and (Path(repo) / name).is_file()]
 
 
 def tracked_markdown(repo=REPO):
@@ -511,7 +514,9 @@ def question_decision_lines(doc, start, end):
 # --- the ledger --------------------------------------------------------------------------------
 
 ITEM_LINE = re.compile(r"- \*\*([^*]+)\*\*(?: — (.+))?$")
-PATH_LINE = re.compile(r"  - \S+\.md$")
+# An Initiative's working document under its ledger line, written bare ("  docs/initiatives/x.md") as the ledger
+# writes it, or as a list item.
+PATH_LINE = re.compile(r"  (?:- )?(\S+\.md)$")
 STATUS_WORD = re.compile(
     r"(?:[—–-]\s+|\()(work-ready|designed|undesigned|cut|built|delivered|done|in progress|next|ready|blocked)\b",
     re.IGNORECASE,
@@ -603,7 +608,8 @@ class Ledger:
             return []
         lines = [item["line"]]
         n = item["line"] + 1
-        while n <= self.ledger_end and self.doc.lines[n - 1].startswith("  - "):
+        while n <= self.ledger_end and (self.doc.lines[n - 1].startswith("  - ")
+                                        or PATH_LINE.match(self.doc.lines[n - 1])):
             lines.append(n)
             n += 1
         return lines
@@ -1067,6 +1073,16 @@ def check_ledger(ledger, design, all_ids, asked_elsewhere=()):
     return problems
 
 
+def missing_history_row(package, history):
+    """The fault when a package under way lacks its rules' history row, written in the same turn as its
+    status; else None."""
+    if (package["stands"] or "").startswith(("being built", "built")) and not re.search(
+            rf"^\| \d{{4}}-\d{{2}}-\d{{2}} \| {re.escape(package['id'])}\b", history, re.MULTILINE):
+        return (f"{package['id']} is {package['stands']} but {HISTORY} has no row for it; add its rules' row with"
+                " history add")
+    return None
+
+
 PRONOUN = re.compile(r"\b(he|him|his|himself|she|her|hers|herself)\b", re.IGNORECASE)
 PLACEHOLDER = re.compile(r"\{\{[A-Z_]+\}\}|<!-- bootstrap:")
 
@@ -1152,13 +1168,11 @@ def find_problems(repo, files, sources=()):
     if settings["bootstrapped"] and "{{" in json.dumps({k: v for k, v in settings.items() if k != "core"}):
         problems.append((CONFIG, 1, "still holds a {{placeholder}}; set the project's values"))
 
-    # A package under way has its rules' history row, written in the same turn as its status.
     history = (repo / HISTORY).read_text(encoding="utf-8") if (repo / HISTORY).exists() else ""
     for package in ledger.packages:
-        if (package["stands"] or "").startswith(("being built", "built")) and not re.search(
-                rf"^\| \d{{4}}-\d{{2}}-\d{{2}} \| {re.escape(package['id'])}\b", history, re.MULTILINE):
-            problems.append((LEDGER, package["line"], f"{package['id']} is {package['stands']} but {HISTORY} has no"
-                             f" row for it; add its rules' row with history add"))
+        detail = missing_history_row(package, history)
+        if detail:
+            problems.append((LEDGER, package["line"], detail))
 
     # Examples must stay runnable: a closed package's id in one goes stale at its close.
     on_ledger = {package["id"] for package in ledger.packages}
@@ -1367,6 +1381,25 @@ def set_status(text, package_id, status, ids):
     return "\n".join(lines)
 
 
+def status_faults(repo, text, new_text, package_id, ids, files):
+    """The ledger check's faults on package_id's line that new_text has and text has not: what writing its
+    status would add. A fault elsewhere on the ledger is the check's to report, not the status's."""
+    design = load(DESIGN, repo)
+    asked = working_questions(repo, files)
+    history = (repo / HISTORY).read_text(encoding="utf-8") if (repo / HISTORY).exists() else ""
+    line = Ledger(Doc(LEDGER, text), ids).package(package_id)["line"]
+
+    def faults(ledger_text):
+        led = Ledger(Doc(LEDGER, ledger_text), ids)
+        found = {detail for _, n, detail in check_ledger(led, design, set(), asked) if n == line}
+        package = led.package(package_id)
+        if package is not None and missing_history_row(package, history):
+            found.add(missing_history_row(package, history))
+        return found
+
+    return sorted(faults(new_text) - faults(text))
+
+
 # --- writing: dropping questions and headings, recording a round's answers ---------------------
 
 RESPONSE = "> **Response:**"
@@ -1561,11 +1594,24 @@ def chat_round(doc, number=None):
 # --- writing: waits ----------------------------------------------------------------------------
 
 
+def wait_tokens(body):
+    """A 'waits on' list split at every ', ' and ' and ', separators kept: [item, separator, item, …]."""
+    return re.split(r"(, | and )", body)
+
+
 def wait_items(body):
     """The things a 'waits on' list names: 'questions 1 and 2, XX-1 and XX-3' is
-    ['questions 1 and 2', 'XX-1', 'XX-3']; a list without commas splits at its last 'and'."""
-    parts = body.split(", ")
-    return [item.strip() for item in parts[:-1] + parts[-1].rsplit(" and ", 1)]
+    ['questions 1 and 2', 'XX-1', 'XX-3'], and 'question 26 and XX-1 and XX-3' is ['question 26', 'XX-1', 'XX-3'];
+    a bare number after a question joins it."""
+    tokens = wait_tokens(body)
+    items = []
+    for n in range(0, len(tokens), 2):
+        piece = tokens[n].strip()
+        if items and re.fullmatch(r"\d+", piece) and re.match(r"questions? ", items[-1]):
+            items[-1] += tokens[n - 1] + piece
+        else:
+            items.append(piece)
+    return items
 
 
 def wait_targets(stands):
@@ -1580,18 +1626,24 @@ def wait_targets(stands):
 
 
 def drop_wait(stands, package_id):
-    """A status without its wait on package_id: 'waits on XX-1 and XX-2' less XX-1 is 'waits on XX-2', and
-    'waits on questions 1 and 2, XX-1, XX-3 and XX-4' less XX-1 is 'waits on questions 1 and 2, XX-3 and XX-4'."""
+    """A status without its wait on package_id, from any place in the list, the other items and separators left as
+    written: 'waits on XX-1 and XX-2' less XX-1 is 'waits on XX-2', 'waits on question 26 and XX-1 and XX-2' less
+    XX-1 is 'waits on question 26 and XX-2', and 'waits on questions 1 and 2, XX-1, XX-3 and XX-4' less XX-1 is
+    'waits on questions 1 and 2, XX-3 and XX-4'. A list naming nothing else is 'can be built'."""
     match = re.match(r"waits on (.+)$", stands or "")
     if not match:
         return stands
-    items = wait_items(match.group(1))
-    if package_id not in items:
-        items = match.group(1).split(" and ")
-    rest = [item for item in items if item.strip() != package_id]
-    if not rest:
+    tokens = wait_tokens(match.group(1))
+    at = next((n for n in range(0, len(tokens), 2) if tokens[n].strip() == package_id), None)
+    if at is None:
+        return stands
+    if len(tokens) == 1:
         return "can be built"
-    return "waits on " + (rest[0] if len(rest) == 1 else ", ".join(rest[:-1]) + " and " + rest[-1])
+    last = at == len(tokens) - 1
+    del tokens[max(at - 1, 0):at + (1 if at else 2)]
+    if last and len(tokens) > 1 and tokens[-2] == ", ":
+        tokens[-2] = " and "  # 'A, B and C' less C is 'A and B'
+    return "waits on " + "".join(tokens)
 
 
 def drop_waits(stands, target, empty="can be built"):
@@ -1650,7 +1702,10 @@ def remove_package(text, package_id, ids, delivered=None):
             new = drop_waits(other["stands"], package_id)
             n = other["line"] - 1
             lines[n] = lines[n].split(" — ", 1)[0] + f" — {new}"
-            notes.append(f"{other['id']} now reads: {new}")
+            if re.search(rf"(?<![\w-]){re.escape(package_id)}(?!\d)", new):
+                notes.append(f"{other['id']}'s standing still names {package_id}; edit it by hand: {new}")
+            else:
+                notes.append(f"{other['id']} now reads: {new}")
     drop = {package["line"]} | set(range(start, end + 1))
     for other_id, other in led.blocks.items():
         line = doc.lines[other["line"] - 1]
@@ -1706,9 +1761,10 @@ START_COMMIT = "start building"
 
 
 def package_changes(repo, package_id):
-    """What the package changed, from its first commit (subject led by its id) to HEAD: the source files and
-    test files under the source roots (or anywhere outside docs), the tests each test file gained, and the
-    subjects of its commits after the first, without the id and name. Empty without git or commits."""
+    """What the package changed in its own commits (those whose subject leads with its id), never another
+    commit made over the same dates: the source files and test files under the source roots (or anywhere outside
+    docs), the tests each test file gained, and the subjects of its commits after the first, without the id and
+    name. Empty without git or commits."""
     def git(*args):
         # Git writes UTF-8 whatever the console's code page; text=True alone decodes cp1252 on Windows.
         return subprocess.run(["git", *args], cwd=repo, capture_output=True, encoding="utf-8", errors="replace",
@@ -1718,17 +1774,20 @@ def package_changes(repo, package_id):
         # --grep matches any line of a message, so a body line naming the id would match too: subjects only.
         log = [line for line in git("log", "--reverse", "--format=%H %s", "-E", "--grep", f"^{package_id} ").splitlines()
                if line.split(" ", 1)[-1].startswith(f"{package_id} ")]
-        first = log[0].split()[0] if log else None
-        names = git("diff", "--name-only", f"{first}^", "HEAD", "--", *roots).splitlines() if first else []
-        names = [name for name in names if Path(name).suffix in docs_sig.ADAPTERS]
-        diffs = {path: git("diff", "-U0", f"{first}^", "HEAD", "--", path) for path in names if docs_sig.is_test(path)}
+        commits = [line.split()[0] for line in log]
+        names = [name for commit in commits
+                 for name in git("-c", "core.quotepath=off", "show", "--name-only", "--format=", commit, "--",
+                                 *roots).splitlines()]
+        names = [name for name in sorted(set(names)) if Path(name).suffix in docs_sig.ADAPTERS]
+        diffs = {path: "".join(git("show", "-U0", "--format=", commit, "--", path) for commit in commits)
+                 for path in names if docs_sig.is_test(path)}
     except (OSError, subprocess.CalledProcessError):
         return {}
     subjects = [line.split(" ", 1)[1].split(": ", 1)[-1] for line in log if " " in line]
     return {
         "files": [name for name in names if not docs_sig.is_test(name)],
         "test_files": [name for name in names if docs_sig.is_test(name)],
-        "tests": {path: docs_sig.added_tests(path, diff) for path, diff in diffs.items()},
+        "tests": {path: list(dict.fromkeys(docs_sig.added_tests(path, diff))) for path, diff in diffs.items()},
         "commits": [s for s in subjects if not s.startswith(START_COMMIT)],
     }
 
@@ -1845,8 +1904,8 @@ def remove_initiative(text, name, ids):
     if left:
         raise ValueError(f"{name} still has {joined(left)} on the ledger; close those first.")
     drop = set(led.item_lines(name))
-    notes = [f"Its working document {doc.lines[n - 1].strip()[2:]}: move it unedited to {RECORDS_DIR}/ beside the "
-             "record, with the same date prefix." for n in drop if PATH_LINE.match(doc.lines[n - 1])]
+    notes = [f"Its working document {PATH_LINE.match(doc.lines[n - 1]).group(1)}: move it unedited to {RECORDS_DIR}/"
+             " beside the record, with the same date prefix." for n in drop if PATH_LINE.match(doc.lines[n - 1])]
     drop |= {n for n in led.contents if re.match(rf"\s*- \[{re.escape(name)}\]\(#", doc.lines[n - 1])}
     start, end = led.initiatives[name]
     while end < len(doc.lines) and not doc.lines[end].strip():
@@ -2665,11 +2724,19 @@ def main(args, repo=REPO):
         package_id = ids.parse(args[1])
         path = repo / LEDGER
         status = " ".join(args[2:])
+        text = path.read_text(encoding="utf-8")
         try:
-            write(path, set_status(path.read_text(encoding="utf-8"), package_id, status, ids))
+            new_text = set_status(text, package_id, status, ids)
         except ValueError as error:
             print(error)
             return 1
+        # Validated before writing, so a status the check would fault never reaches the ledger.
+        faults = status_faults(repo, text, new_text, package_id, ids, files)
+        if faults:
+            print(f"{package_id}'s status was not written; the ledger check would report:")
+            print("\n".join(f"  - {fault}" for fault in faults))
+            return 1
+        write(path, new_text)
         print(f"{package_id} — {status}")
         return check(files, repo)
     if target == "close" and len(args) >= 2 and ids.parse(args[1]):

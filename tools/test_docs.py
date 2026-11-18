@@ -308,6 +308,12 @@ class Check(Repo):
                          "is not above TS-102", "question 99 is named", 'waits on "TS-99"'):
             self.assertIn(expected, found)
 
+    def test_a_non_ascii_filename_is_tracked(self):
+        git(self.repo, "config", "core.quotepath", "true")  # git's default, which quotes the name in ls-files
+        self.put("docs/café.md", "Cites section 99.\n")
+        self.assertIn("docs/café.md", docs.tracked_markdown(self.repo))
+        self.assertIn("cites section 99", "\n".join(self.problems()))
+
     def test_status_word_in_a_heading(self):
         self.put("LEDGER.md", LEDGER.replace("### Offline", "### Offline (designed)")
                  .replace("- **Offline** —", "- **Offline (designed)** —"))
@@ -499,6 +505,18 @@ class Status(Repo):
     def test_status_of_an_unknown_package(self):
         self.assertEqual(1, self.main("status", "TS-999", "x")[0])
 
+    def test_a_status_that_would_fail_the_check_writes_nothing(self):
+        before = self.read("LEDGER.md")
+        for status in (["waits", "on", "question", "99"], ["being", "built"], ["waits", "on", "TS-99"]):
+            code, out = self.main("status", "TS-100", *status)
+            self.assertEqual(1, code, out)
+            self.assertIn("not written", out)
+            self.assertEqual(before, self.read("LEDGER.md"))
+        # a fault on another line is the check's to report, not a reason to refuse this one
+        self.put("LEDGER.md", before.replace("The next package ID is TS-103.", "The next package ID is TS-102."))
+        self.main("status", "TS-100", "waits", "on", "question", "8")
+        self.assertIn("TS-100 Facets (Claude Opus 5.5) — waits on question 8", self.read("LEDGER.md"))
+
 
 class Close(Repo):
     def build_package(self):
@@ -528,6 +546,37 @@ class Close(Repo):
         self.assertIn("| 2026-10-05 | TS-100 approved", self.read("design-history.md"))
         self.assertEqual(0, code, out)
 
+    def test_close_lists_only_the_packages_own_commits_files(self):
+        self.put("src/search/Index.py", "def facets():\n    return []\n")
+        self.commit("TS-100 Facets: start building; the rules")
+        self.put("src/storage/Files.py", "def save():\n    pass\n")
+        self.put("tests/test_files.py", "def test_saves():\n    assert True\n")
+        self.commit("Storage: save files\n\nNot TS-100's work, though made over its dates.")
+        self.put("tests/test_index.py", "def test_facets_count():\n    assert True\n")
+        self.put("src/search/Index.py", "def facets():\n    return [1]\n")
+        self.commit("TS-100 Facets: count facets")
+        self.put("tests/test_index.py", "def test_facets_count():\n    assert 1\n\n\ndef test_facets_sort():\n    pass\n")
+        self.commit("TS-100 Facets: sort facets")
+        self.put("src/search/Later.py", "def later():\n    pass\n")
+        self.commit("After the package")
+        self.configure(source_roots=["src", "tests"])
+        self.main("close", "TS-100", "--date", "2026-10-05")
+        record = self.read("docs/archive/initiatives/2026-10-05-search-filters-record.md")
+        self.assertIn("(these changed: `src/search/Index.py`)", record)
+        self.assertIn("- Tests: `tests/test_index.py` (facets count; facets sort).", record)
+        for other in ("Files.py", "test_files.py", "Later.py"):
+            self.assertNotIn(other, record)
+
+    def test_close_drops_the_id_from_the_middle_of_a_wait_list_and_says_so(self):
+        self.put("LEDGER.md", LEDGER.replace("— waits on TS-100 and question 7",
+                                             "— waits on question 7 and TS-100 and TS-102"))
+        self.commit("A three-part wait")
+        code, out = self.main("close", "TS-100", "--date", "2026-10-05")
+        self.assertIn("TS-101 Saved searches (Claude Sonnet 5.5) — waits on question 7 and TS-102",
+                      self.read("LEDGER.md"))
+        self.assertIn("TS-101 now reads: waits on question 7 and TS-102", out)
+        self.assertNotIn("standing still names TS-100", out)
+
     def test_close_rewrites_bare_mentions_when_delivered(self):
         self.main("close", "TS-100", "--date", "2026-10-05", "--delivered", "the delivered facets (4.6.1)")
         self.assertIn("*Depends on:* the delivered facets (4.6.1).", self.read("LEDGER.md"))
@@ -553,6 +602,18 @@ class Close(Repo):
         record = self.read("docs/archive/initiatives/2026-10-05-search-filters-record.md")
         self.assertIn("Delivered and closed on 2026-10-07 by owner approval, after TS-101. Two packages", record)
         self.assertIn("closed 2026-10-07, one block per package", self.read("docs/archive/README.md"))
+
+    def test_closing_an_initiative_removes_its_working_document_line(self):
+        # The ledger writes the working document's path bare under the Initiative's line, before its packages.
+        self.put("LEDGER.md", self.read("LEDGER.md").replace(
+            "- **Search Filters** — cut\n", "- **Search Filters** — cut\n  docs/initiatives/search.md\n"))
+        self.main("close", "TS-100", "--date", "2026-10-05")
+        self.main("close", "TS-101", "--date", "2026-10-06")
+        self.assertIn("  docs/initiatives/search.md\n", self.read("LEDGER.md"))
+        code, out = self.main("close-initiative", "Search Filters", "--date", "2026-10-07")
+        self.assertEqual(0, code, out)
+        self.assertNotIn("docs/initiatives/search.md", self.read("LEDGER.md"))
+        self.assertIn("Its working document docs/initiatives/search.md: move it unedited", out)
 
     def test_id_ranges(self):
         self.assertEqual("TS-1 to TS-3 and TS-7", docs.id_ranges(["TS-2", "TS-1", "TS-3", "TS-7"], docs.Ids("TS")))
@@ -706,8 +767,23 @@ class Waits(unittest.TestCase):
                          docs.drop_wait("waits on questions 1 and 2, XX-1, XX-3 and XX-4", "XX-1"))
         self.assertEqual("can be built", docs.drop_wait("waits on XX-1", "XX-1"))
 
+    def test_drop_wait_takes_the_id_from_any_place(self):
+        middle = "waits on question 26 and XX-100 and XX-101"
+        self.assertEqual("waits on XX-100 and XX-101", docs.drop_wait(middle.replace("question 26 and ", "XX-99 and "),
+                                                                    "XX-99"))  # first
+        self.assertEqual("waits on question 26 and XX-101", docs.drop_wait(middle, "XX-100"))  # middle
+        self.assertEqual("waits on question 26 and XX-100", docs.drop_wait(middle, "XX-101"))  # last
+        self.assertEqual("waits on XX-1 and XX-3", docs.drop_wait("waits on XX-1, XX-2 and XX-3", "XX-2"))
+        self.assertEqual("waits on XX-1 and XX-2", docs.drop_wait("waits on XX-1, XX-2 and XX-3", "XX-3"))
+        self.assertEqual("can be built", docs.drop_wait("waits on XX-100", "XX-100"))  # only
+        self.assertEqual("waits on XX-1000", docs.drop_wait("waits on XX-1000", "XX-100"))  # never a longer id
+        self.assertEqual("no open questions; waits on question 26 and XX-101",
+                         docs.drop_waits("no open questions; waits on question 26 and XX-100 and XX-101", "XX-100"))
+
     def test_wait_targets_leave_questions_out(self):
         self.assertEqual(["XX-1", "Offline"], docs.wait_targets("cut; waits on question 3, XX-1 and Offline"))
+        self.assertEqual(["XX-1", "XX-2"], docs.wait_targets("waits on question 26 and XX-1 and XX-2"))
+        self.assertEqual(["questions 1 and 2", "XX-1"], docs.wait_items("questions 1 and 2, XX-1"))
 
 
 class Context(unittest.TestCase):

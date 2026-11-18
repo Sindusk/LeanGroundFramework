@@ -12,9 +12,11 @@ new file is not a rewrite. Reads are never blocked; only writes are refused:
 1. `sed -i` on a protected path.
 2. A redirect or `tee` into one (`2>&1`, `>&2` and `/dev/null` are descriptors, not files).
 3. An inline script (a heredoc, `python -c`, `node -e`, PowerShell's Set-Content, Add-Content or Out-File)
-   that writes and names a protected path.
-4. An unreviewed script (untracked, gitignored or outside the repository) run by path that writes and names
-   one. A committed script is reviewed code and runs freely.
+   whose own text writes and names a protected path; a path named beside it on the command line is not its.
+4. An unreviewed script (untracked, gitignored or outside the repository) run by path, one of whose writing
+   lines names one. A committed script is reviewed code and runs freely.
+
+A quoted path is one token, spaces included.
 
 Opting out: a project that must write from the shell creates `.claude/allow-shell-edits`; a one-off command
 sets `ALLOW_SHELL_EDITS=1`. Standard library only. Exit 2 refuses (its stderr is the reason); Codex gets its
@@ -31,10 +33,11 @@ from pathlib import Path
 WRITE_MARKER = re.compile(
     r"\bwriteFileSync\b|\bappendFileSync\b|\bcreateWriteStream\b|\bopen\s*\([^)]*['\"][rab+]*w|\.write_text\s*\("
     r"|\bshutil\.(copy|move)\b|\bos\.replace\s*\(|\bSet-Content\b|\bAdd-Content\b|\bOut-File\b")
-HEREDOC = re.compile(r"<<-?\s*[\"']?\w+")
 INLINE_EVAL = re.compile(r"\b(?:node|deno|bun|python3?|py|perl|ruby)\b[^\n|;&]*\s-(?:e|c)\b")
 PS_WRITE = re.compile(r"\b(?:Set-Content|Add-Content|Out-File)\b")
-INVOCATION = re.compile(r"\b(?:node|deno|bun|python3?|py)\s+(?:-[\w-]+\s+)*([\"']?)([^\s\"'|&;<>()]+\.(?:mjs|cjs|js|ts|py))\1")
+# the interpreter starts a command, so `git add a.py tools/b.py` is not `py tools/b.py`
+INVOCATION = re.compile(r"(?:^|(?<=[\s;&|(]))(?:node|deno|bun|python3?|py)\s+(?:-[\w-]+\s+)*([\"']?)"
+                        r"([^\s\"'|&;<>()]+\.(?:mjs|cjs|js|ts|py))\1")
 QUOTED = re.compile(r"(['\"])(?:\\.|(?!\1)[^\\])*\1")
 MESSAGE = ("Tracked files are edited only with the harness's structured edit tool (in Claude Code: Edit for existing\n"
            "files, Write for new ones), not sed -i, a redirect, a heredoc or a throwaway script. Shell rewrites fail\n"
@@ -92,9 +95,10 @@ def expand_assignments(text):
                   lambda m: values.get(m.group(1) or m.group(2), m.group(0)), text)
 
 
-def looks_like_path(repo, token):
-    """A filesystem path rather than a flag, a URL, a command line or prose."""
-    if not token or len(token) > 300 or re.search(r"\s", token) or re.match(r"[-+&]", token):
+def looks_like_path(repo, token, quoted=False):
+    """A filesystem path rather than a flag, a URL, a command line or prose. A quoted token may hold spaces
+    ("two words.md"); it still has to exist, or have its folder exist, to count."""
+    if not token or len(token) > 300 or re.search(r"\n" if quoted else r"\s", token) or re.match(r"[-+&]", token):
         return False
     if re.match(r"[a-z][a-z0-9+.-]*://", token, re.I):
         return False
@@ -107,15 +111,34 @@ def looks_like_path(repo, token):
 
 
 def path_tokens(repo, text):
-    tokens = [m.group(2) for m in re.finditer(r"(['\"])([^'\"\n]{1,300})\1", text)]
-    tokens += [m.group(1) for m in re.finditer(r"(?:^|[\s=(,;|&])([\w.~][\w./\\-]{0,299})", text)]
-    return [token for token in tokens if looks_like_path(repo, token)]
+    quoted = [m.group(2) for m in re.finditer(r"(['\"])([^'\"\n]{1,300})\1", text)]
+    bare = [m.group(1) for m in re.finditer(r"(?:^|[\s=(,;|&])([\w.~][\w./\\-]{0,299})", text)]
+    return ([token for token in quoted if looks_like_path(repo, token, quoted=True)]
+            + [token for token in bare if looks_like_path(repo, token)])
 
 
 def redirect_targets(text):
-    targets = [m.group(2) for m in re.finditer(r"(?:^|[\s;|&(])\d?>>?\s*(?!&)([\"']?)([^\s\"'|&;<>()]+)\1", text)]
-    targets += [m.group(2) for m in re.finditer(r"\btee\s+(?:-a\s+)?([\"']?)([^\s\"'|&;<>()]+)\1", text)]
-    return targets
+    # a target is a quoted word, spaces and all, or a bare one
+    target = r"(?:\"([^\"\n]+)\"|'([^'\n]+)'|([^\s\"'|&;<>()]+))"
+    found = re.finditer(rf"(?:^|[\s;|&(])\d?>>?\s*(?!&){target}", text)
+    found = [*found, *re.finditer(rf"\btee\s+(?:-a\s+)?{target}", text)]
+    return [next(group for group in m.groups() if group) for m in found]
+
+
+def inline_scripts(command, syntax, blanked):
+    """The inline scripts a command runs: each heredoc's body, each `-c`/`-e` argument, and a PowerShell write's
+    whole command. Only a script's own text is searched for the paths it writes, so a file named beside the
+    script (`python - <<EOF ... EOF; python -m unittest tools/test_x.py`) is not taken for its target.
+    syntax is the command with heredoc bodies cut, and blanked is syntax with quoted text blanked."""
+    scripts = [m.group(3) for m in re.finditer(r"<<-?\s*([\"']?)(\w+)\1[^\n]*\n([\s\S]*?)^\s*\2\s*$", command,
+                                               flags=re.MULTILINE)]
+    for match in INLINE_EVAL.finditer(blanked):
+        rest = syntax[match.end():].lstrip()
+        quoted = QUOTED.match(rest)
+        scripts.append(quoted.group(0)[1:-1] if quoted else re.split(r"[|;&\n]", rest, maxsplit=1)[0])
+    if PS_WRITE.search(blanked):
+        scripts.append(command)
+    return scripts
 
 
 def refusal(event, cwd):
@@ -146,11 +169,11 @@ def refusal(event, cwd):
     if offenders:
         return "a shell redirect that would overwrite a tracked file", offenders
 
-    inline = HEREDOC.search(command) or INLINE_EVAL.search(blanked) or PS_WRITE.search(blanked)
-    if inline and WRITE_MARKER.search(command):
-        offenders = [token for token in path_tokens(repo, command) if repo.protected(token)]
-        if offenders:
-            return "a script that rewrites a tracked file", offenders
+    for script in inline_scripts(command, syntax, blanked):
+        if WRITE_MARKER.search(script):
+            offenders = [token for token in path_tokens(repo, script) if repo.protected(token)]
+            if offenders:
+                return "a script that rewrites a tracked file", offenders
 
     for match in INVOCATION.finditer(command):
         script = repo.absolute(match.group(2))
@@ -160,8 +183,11 @@ def refusal(event, cwd):
             body = script.read_text(encoding="utf-8")
         except OSError:
             continue
-        if WRITE_MARKER.search(body):
-            offenders = [token for token in path_tokens(repo, body) if repo.protected(token)]
+        # Only the lines that write are searched for the paths written, so a new tool's docstring naming
+        # tracked files, or the files it reads, never count as its targets.
+        writing = "\n".join(line for line in body.splitlines() if WRITE_MARKER.search(line))
+        if writing:
+            offenders = [token for token in path_tokens(repo, writing) if repo.protected(token)]
             if offenders:
                 return f"an unreviewed script ({match.group(2)}) that rewrites tracked files", offenders
     return None

@@ -26,7 +26,21 @@ def problems(message, require_trailer=True, require_body=False):
     if require_trailer and not ends_with_trailer:
         found.append("it must end with Co-Authored-By: <model> <noreply address>, naming the model that made it")
     if require_body:
-        body = [line for line in meaningful[1:] if not TRAILER.match(line) and not GENERIC_TRAILER.match(line)]
+        # As git reads trailers: only the last paragraph, and only when every line in it is trailer-shaped, so a
+        # body line such as "Verification: offline tests" stays body.
+        paragraphs = [[]]
+        for line in lines:
+            if line.startswith("#"):
+                continue
+            if line:
+                paragraphs[-1].append(line)
+            elif paragraphs[-1]:
+                paragraphs.append([])
+        paragraphs = [paragraph for paragraph in paragraphs if paragraph]
+        rest = [paragraphs[0][1:]] + paragraphs[1:]
+        if rest[-1] and all(TRAILER.match(line) or GENERIC_TRAILER.match(line) for line in rest[-1]):
+            rest = rest[:-1]
+        body = [line for paragraph in rest for line in paragraph]
         if not body:
             found.append("it needs a body saying why, the judgments made, and how it was verified")
     return found

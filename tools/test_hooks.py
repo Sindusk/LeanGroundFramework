@@ -56,14 +56,77 @@ class SearchGate(Repo):
         return search_gate.refusal(event, self.repo)
 
     def test_shell_readers_on_tracked_files(self):
+        self.put("docs/a.md", "a\n")
+        self.commit()
         self.assertIsNotNone(self.refused(shell("grep -n foo DESIGN.md")))
         self.assertIsNotNone(self.refused(shell("cd x && cat app/main.py")))
         self.assertIsNotNone(self.refused({"tool_name": "PowerShell", "tool_input": {"command": "Get-Content docs/a.md"}}))
+        self.assertIsNotNone(self.refused(shell(f"cd \"{self.repo / 'docs'}\"; cat a.md")))
+        self.assertIsNotNone(self.refused(shell(f"cat \"{self.repo / 'DESIGN.md'}\"")))
+        self.assertIsNotNone(self.refused(shell("grep -rn foo docs/")))
+
+    def test_untracked_ignored_and_outside_files_pass(self):
+        self.put(".gitignore", "ignored.txt\n/scratch/\n/run/\n")
+        self.put("scratch/pending/brief.md", "b\n")
+        self.put("run/server/config/a.json", "{}\n")
+        self.commit()
+        self.assertIsNone(self.refused(shell("cat scratch/pending/brief.md")))
+        self.assertIsNone(self.refused(shell("cd run/server && cat config/a.json")))
+        self.assertIsNone(self.refused(shell("cat 'run/server/config/a.json'")))
+        self.assertIsNone(self.refused(shell("cat docs/missing.md")))
+        self.put("notes/new.md", "n\n")
+        self.assertIsNone(self.refused(shell("cat notes/new.md")))
+        outside = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        (outside / "DESIGN.md").write_text("x\n", encoding="utf-8")
+        self.assertIsNone(self.refused(shell(f"cd \"{outside}\" && grep -n x DESIGN.md")))
+        self.assertIsNone(self.refused(shell(f"grep -n x \"{outside / 'DESIGN.md'}\"")))
+
+    def test_absolute_path_with_punctuation(self):
+        path = "notes!#sample/README.md"
+        self.put(path, "# Notes\n")
+        self.commit()
+        self.assertIsNotNone(self.refused({"tool_name": "PowerShell",
+                                           "tool_input": {"command": f"Get-Content '{self.repo / path}'"}}))
+        self.assertIsNotNone(self.refused(shell(f"cat \"{self.repo / path}\"")))
+
+    def test_a_quoted_path_with_spaces(self):
+        self.put("notes/two words.md", "x\n")
+        self.commit()
+        self.assertIsNotNone(self.refused(shell('cat "notes/two words.md"')))
+        self.assertIsNotNone(self.refused({"tool_name": "PowerShell",
+                                           "tool_input": {"command": "Get-Content 'notes/two words.md' -TotalCount 5"}}))
+
+    def test_whole_disk_searches(self):
+        for command in ('find / -iname "*report*.pdf" 2>/dev/null | head -3', "cd x && find /c -name a",
+                        "find ~ -name a", "find C:/ -name a", "ls run; find /c/Users -name x", "find $HOME -name a",
+                        "ls -R /"):
+            self.assertIsNotNone(self.refused(shell(command)), command)
+        for command in ("Get-ChildItem C:\\ -Recurse -Filter *.pdf", "gci -r ~ -Filter a", "dir C:\\ /s /b"):
+            self.assertIsNotNone(self.refused({"tool_name": "PowerShell", "tool_input": {"command": command}}), command)
+        for command in ('find run/server -path "*config*" -name a', "find . -name x", "ls /", "git grep find",
+                        "ls ~", "find docs -name '*.md'"):
+            self.assertIsNone(self.refused(shell(command)), command)
+        self.assertIsNone(self.refused({"tool_name": "PowerShell", "tool_input": {"command": "Get-ChildItem run -Recurse"}}))
+
+    def test_shell_read_paths_pass_and_nothing_else(self):
+        self.put("tools/leanground.json", json.dumps({"shell_read_paths": ["docs/data/*.txt", "tools/allow.txt"]}))
+        self.put("docs/data/sample-01.txt", "x\n")
+        self.put("docs/data/sample-02.txt", "x\n")
+        self.put("docs/data/sample-01.md", "sheet\n")
+        self.put("tools/allow.txt", "x\n")
+        self.commit()
+        self.assertIsNone(self.refused(shell("cat docs/data/sample-01.txt tools/allow.txt; python x.py")))
+        self.assertIsNone(self.refused(shell('cat "docs\\data\\sample-02.txt"')))
+        self.assertIsNotNone(self.refused(shell("cat docs/data/sample-01.txt docs/data/sample-01.md")))
+        self.assertIsNotNone(self.refused(shell("grep -n foo DESIGN.md")))
 
     def test_logs_pipes_and_build_output_pass(self):
         self.assertIsNone(self.refused(shell("git log | grep foo")))
         self.assertIsNone(self.refused(shell("grep ERROR build/logs/latest.log")))
         self.assertIsNone(self.refused(shell("git grep -n foo -- DESIGN.md")))
+        self.assertIsNone(self.refused(shell('grep ERROR "build/logs/latest.log"')))
+        self.assertIsNotNone(self.refused(shell("grep ERROR build/logs/latest.log DESIGN.md")))
 
     def test_a_long_source_file_read_whole(self):
         self.put("app/long.py", "x = 1\n" * 10)
@@ -105,6 +168,20 @@ class EditGate(Repo):
         heredoc = "python - <<'PY'\nfrom pathlib import Path\nPath('app/main.py').write_text('y')\nPY"
         self.assertIn("script", self.refused(heredoc))
         self.assertIsNone(self.refused("grep -n 'write_text' app/main.py"))
+        self.assertIn("script", self.refused("python -c \"open('app/main.py', 'w').write('y')\""))
+
+    def test_a_path_beside_an_inline_script_is_not_its_target(self):
+        heredoc = "python - <<'PY'\nfrom pathlib import Path\nPath('/tmp/x').write_text('y')\nPY\npython -m unittest app/main.py"
+        self.assertIsNone(self.refused(heredoc))
+        self.assertIsNone(self.refused("python -c \"open('x.log', 'w')\"; python -m unittest app/main.py"))
+
+    def test_a_quoted_path_with_spaces(self):
+        self.put("notes/two words.md", "x\n")
+        self.commit()
+        self.assertIn("redirect", self.refused('echo x > "notes/two words.md"'))
+        self.assertIn("redirect", self.refused("echo x | tee -a 'notes/two words.md'"))
+        self.assertIn("script", self.refused("python -c \"open('notes/two words.md', 'w').write('y')\""))
+        self.assertIsNone(self.refused('git commit -m "fix the notes/two words.md typo"'))
 
     def test_a_commit_message_heredoc_is_prose(self):
         self.assertIsNone(self.refused("git commit -F - <<'EOF'\nStop using sed -i on app/main.py\nEOF"))
@@ -112,6 +189,9 @@ class EditGate(Repo):
     def test_unreviewed_and_committed_scripts(self):
         self.put("fix.py", "from pathlib import Path\nPath('app/main.py').write_text('y')\n")
         self.assertIn("unreviewed script", self.refused("python fix.py"))
+        self.assertIsNone(self.refused("git add app/main.py fix.py"))
+        self.put("tool.py", '"""Reads app/main.py."""\nfrom pathlib import Path\nPath("run/out.txt").write_text("y")\n')
+        self.assertIsNone(self.refused("python tool.py"))
         self.commit()
         self.assertIsNone(self.refused("python fix.py"))
 
@@ -132,11 +212,10 @@ class StopCheck(Repo):
         self.assertIsNone(stop_check.reminder(self.repo))
         self.put("DESIGN.md", "# Changed\n")
         self.assertIn("uncommitted tracked changes", stop_check.reminder(self.repo))
-        remote = Path(tempfile.mkdtemp())
-        self.addCleanup(shutil.rmtree, remote, ignore_errors=True)
-        git(remote, "init", "-q", "--bare")
-        git(self.repo, "remote", "add", "origin", str(remote))
-        git(self.repo, "push", "-q", "-u", "origin", "main")
+        # An upstream written as a local ref, so the test never runs git's push transport (refused on some hosts).
+        git(self.repo, "remote", "add", "origin", str(self.repo / "no-such-remote"))
+        git(self.repo, "update-ref", "refs/remotes/origin/main", "HEAD")
+        git(self.repo, "branch", "--set-upstream-to=origin/main", "main")
         self.commit()
         self.assertEqual("Reminder: unpushed commits. Commit at a logical checkpoint and push to main as CLAUDE.md"
                          ' "Commits" says, once the build and python tools/docs.py check pass. (tools/stop_check.py)',
@@ -160,6 +239,14 @@ class CommitMessage(unittest.TestCase):
         self.assertEqual([], commit_msg.problems(bare))
         self.assertEqual(1, len(commit_msg.problems(bare, require_body=True)))
         self.assertEqual(1, len(commit_msg.problems("# only a comment\n")))
+
+    def test_a_body_line_shaped_like_a_trailer_is_body(self):
+        trailer = "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n"
+        self.assertEqual([], commit_msg.problems(f"Add search\n\nVerification: offline tests\n\n{trailer}",
+                                                 require_body=True))
+        self.assertEqual([], commit_msg.problems(f"Add search\n\nNote: why.\nMore prose.\n\n{trailer}", require_body=True))
+        self.assertEqual(1, len(commit_msg.problems(f"Add search\n\nSigned-off-by: A <a@b.c>\n{trailer}",
+                                                    require_body=True)))
 
 
 if __name__ == "__main__":
