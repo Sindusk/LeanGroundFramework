@@ -791,7 +791,191 @@ class Context(unittest.TestCase):
         line = json.dumps({"type": "assistant", "message": {"id": "m1", "usage": {
             "input_tokens": 10, "cache_read_input_tokens": 1000, "cache_creation_input_tokens": 5}}})
         later = json.dumps({"type": "assistant", "message": {"id": "m2", "usage": {"input_tokens": 500}}})
-        self.assertEqual((2, 500, 1015), docs.context_use([line, line, later, "not json"]))
+        self.assertEqual((2, 1015, 500, 1015), docs.context_use([line, line, later, "not json"]))
+        self.assertEqual((0, 0, 0, 0), docs.context_use(["not json"]))
+
+    def test_the_ceiling_line_says_what_to_do_past_it(self):
+        self.assertIn("within the 200k ceiling (handoff_past)", docs.ceiling_line(150_000, 200_000))
+        past = docs.ceiling_line(210_000, 200_000)
+        self.assertIn("past the 200k ceiling (handoff_past)", past)
+        self.assertIn("paste-ready prompt for a new session", past)
+
+    def test_context_reads_the_newest_transcript(self):
+        home = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, home, ignore_errors=True)
+        repo = home / "repo"
+        repo.mkdir()
+        original = Path.home
+        Path.home = classmethod(lambda cls: home)
+        self.addCleanup(setattr, Path, "home", original)
+        folder = docs.transcript_dir(repo)
+        folder.mkdir(parents=True)
+        usage = [json.dumps({"type": "assistant", "message": {"id": f"m{n}", "usage": {"input_tokens": size}}})
+                 for n, size in enumerate((30_000, 250_000, 240_000))]
+        (folder / "abcdef12-session.jsonl").write_text("\n".join(usage), encoding="utf-8")
+        docs._configs.clear()
+        self.addCleanup(docs._configs.clear)
+        code, out = run(docs.show_context, repo)
+        self.assertEqual(0, code)
+        self.assertIn("240k of context at the last request, peak 250k, 3 requests", out)
+        self.assertIn("first request 30k", out)
+        self.assertIn("past the 200k ceiling", out)
+
+
+class SectionCap(Repo):
+    files = {"DESIGN.md": DESIGN.replace("The index.\n", "The index.\n\n" + "word " * 3000 + "\n")}
+
+    def test_a_section_over_the_cap_prints_its_own_text_and_menu(self):
+        doc = docs.Doc("DESIGN.md", "## 4. A\n\nOwn text.\n\n### 4.1 B\n\n" + "word " * 5000 + "\n\n### 4.2 C\n\nShort.\n")
+        _, out = run(docs.show_section, doc, docs.find_section(doc, "4"), False, None)
+        self.assertIn("over section_cap (5,000)", out)
+        self.assertIn("python tools/docs.py 4.1", out)
+        self.assertIn("Own text.", out)
+        self.assertIn("4.2      C", out)
+        self.assertNotIn("word word", out)
+        _, out = run(docs.show_section, doc, docs.find_section(doc, "4.2"), False, None)
+        self.assertIn("Short.", out)
+        self.assertNotIn("section_cap", out)
+
+    def test_a_long_section_without_subsections_prints_whole(self):
+        doc = docs.Doc("DESIGN.md", "## 4. A\n\n" + "word " * 5000 + "\n")
+        _, out = run(docs.show_section, doc, docs.find_section(doc, "4"), False, None)
+        self.assertIn("word word", out)
+
+    def test_the_cap_comes_from_the_settings(self):
+        _, out = self.main("4.6")
+        self.assertIn("word word", out)
+        self.configure(section_cap=1000)
+        _, out = self.main("4.6")
+        self.assertIn("over section_cap (1,000)", out)
+        self.assertNotIn("word word", out)
+        self.assertIn("4.6.1    Built rules", out)
+
+
+LESSONS = "# Lessons waiting for a retro\n\nA header that must survive.\n"
+
+
+class Lessons(Repo):
+    files = {"docs/agent-notes/lessons.md": LESSONS}
+
+    def test_lesson_add_appends_one_line(self):
+        code, out = self.main("lesson", "add", "TS-100: three reruns → read the report first")
+        self.assertEqual(0, code)
+        self.assertIn("1 lesson waits for a retro", out)
+        code, out = self.main("lesson", "add", "- TS-100: a second")
+        self.assertIn("2 lessons wait", out)
+        self.assertEqual(LESSONS + "\n- TS-100: three reruns → read the report first\n- TS-100: a second\n",
+                         self.read("docs/agent-notes/lessons.md"))
+
+    def test_lesson_add_refuses_an_empty_line_and_a_missing_file(self):
+        self.assertEqual(1, self.main("lesson", "add", "  ")[0])
+        (self.repo / "docs/agent-notes/lessons.md").unlink()
+        code, out = self.main("lesson", "add", "x")
+        self.assertEqual(1, code)
+        self.assertIn("never creates it", out)
+        self.assertFalse((self.repo / "docs/agent-notes/lessons.md").exists())
+
+    def test_check_notes_a_due_retro_without_failing(self):
+        self.configure(retro_after_lessons=2)
+        for n in range(2):
+            self.main("lesson", "add", f"lesson {n}")
+        code, out = self.main("check")
+        self.assertEqual(0, code)
+        self.assertNotIn("a retro is due", out)
+        self.main("lesson", "add", "lesson 3")
+        code, out = self.main("check")
+        self.assertEqual(0, code)
+        self.assertIn("3 lessons wait in docs/agent-notes/lessons.md; a retro is due", out)
+
+
+REPORT = """<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="search" tests="3">
+    <testcase classname="search.IndexTest" name="finds_a_word" file="tests/test_index.py"/>
+    <testcase classname="search.IndexTest" name="ranks_by_score">
+      <failure message="expected 2 but was 3">Traceback line one
+line two</failure>
+    </testcase>
+    <testcase classname="search.CacheTest" name="expires"><error>Timeout after 5s
+stack</error></testcase>
+    <testcase classname="search.CacheTest" name="skipped"><skipped/></testcase>
+  </testsuite>
+</testsuites>
+"""
+
+
+class Failures(Repo):
+    def test_no_setting_and_no_report(self):
+        code, out = self.main("failures")
+        self.assertEqual(1, code)
+        self.assertIn("has not set test_report", out)
+        self.configure(test_report="build/reports/*.xml")
+        code, out = self.main("failures")
+        self.assertEqual(1, code)
+        self.assertIn("No test report at build/reports/*.xml", out)
+
+    def test_a_report_with_no_failures(self):
+        self.put("build/report.xml", REPORT.split("<testcase classname=\"search.IndexTest\" name=\"ranks")[0]
+                 + "</testsuite></testsuites>\n")
+        self.configure(test_report="build/report.xml")
+        code, out = self.main("failures")
+        self.assertEqual(0, code)
+        self.assertIn("No failures: 1 tests in 1 report file", out)
+
+    def test_failures_short_and_full(self):
+        self.put("build/reports/TEST-search.xml", REPORT)
+        self.configure(test_report="build/reports")
+        code, out = self.main("failures")
+        self.assertEqual(1, code)
+        self.assertIn("2 failed of 4 tests", out)
+        self.assertIn("ranks_by_score  (search.IndexTest)  expected 2 but was 3", out)
+        self.assertIn("expires  (search.CacheTest)  Timeout after 5s", out)
+        self.assertNotIn("Traceback", out)
+        self.assertNotIn("finds_a_word", out)
+        _, out = self.main("failures", "--full")
+        self.assertIn("    Traceback line one\n    line two", out)
+        self.assertIn("    stack", out)
+
+    def test_an_unreadable_report(self):
+        self.put("build/report.xml", "<testsuite><testcase")
+        self.configure(test_report="build/*.xml")
+        code, out = self.main("failures")
+        self.assertEqual(1, code)
+        self.assertIn("Could not read", out)
+
+
+class NamedCommands(Repo):
+    def skill(self, text):
+        self.put(".claude/skills/demo/SKILL.md", text)
+        self.configure(budgets={"CLAUDE.md": 200, ".claude/skills/demo/SKILL.md": 500})
+        return [p for p in self.problems() if "python tools/docs.py" in p]
+
+    def test_real_commands_and_lookups_pass(self):
+        self.assertEqual([], self.skill(
+            "# Demo\n\nRun `python tools/docs.py check`, `python tools/docs.py 4.6 --own`, `python tools/docs.py q7`,"
+            " `python tools/docs.py TS-100`, `python tools/docs.py XX-nnn`, `python tools/docs.py \"Search Filters\"`,"
+            " `python tools/docs.py <section>`, `python tools/docs.py DESIGN.md --grep x`, `python tools/docs.py"
+            " lesson add \"<line>\"`, `python tools/docs.py history add <file>`, `python tools/docs.py failures`.\n"
+            "\n```\npython tools/docs.py ledger insert pkg.md --after TS-100\n```\n"))
+
+    def test_a_command_that_does_not_exist(self):
+        found = self.skill("# Demo\n\nRead `python tools/docs.py testfail` and `python tools/docs.py lesson`.\n")
+        self.assertEqual(2, len(found))
+        self.assertIn("names `python tools/docs.py testfail`, which is no command", found[0])
+        self.assertIn("where lesson needs add", found[1])
+
+    def test_a_project_command_counts(self):
+        self.put("tools/project_docs.py", "COMMANDS = {'hello': (None, '    python tools/docs.py hello')}\n")
+        self.assertEqual([], self.skill("# Demo\n\n`python tools/docs.py hello`\n"))
+
+    def test_every_usage_line_names_a_known_command(self):
+        firsts = {line.split()[2] for line in docs.__doc__.splitlines() if line.startswith("    python tools/docs.py")}
+        lookups = {word for word in firsts if docs.is_lookup(word)}
+        self.assertEqual(set(), firsts - lookups - set(docs.DOCS_COMMANDS))
+        self.assertLessEqual({"lesson", "failures"}, firsts)
+        _, out = run(docs.main, ["help"])
+        self.assertIn('python tools/docs.py lesson add "<line>"', out)
+        self.assertIn("python tools/docs.py failures [--full]", out)
 
 
 JAVA = """package demo;

@@ -1,10 +1,13 @@
-"""Tests for the hooks: tools/search_gate.py, tools/edit_gate.py, tools/stop_check.py and tools/commit_msg.py.
-Run from the repository root:
+"""Tests for the hooks: tools/search_gate.py, tools/edit_gate.py, tools/stop_check.py, tools/commit_msg.py and
+tools/pre_commit.py. Run from the repository root:
 
     python -m unittest tools/test_hooks.py
 """
 
+import contextlib
+import io
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -16,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import commit_msg  # noqa: E402
 import edit_gate  # noqa: E402
+import pre_commit  # noqa: E402
 import search_gate  # noqa: E402
 import stop_check  # noqa: E402
 
@@ -128,6 +132,51 @@ class SearchGate(Repo):
         self.assertIsNone(self.refused(shell('grep ERROR "build/logs/latest.log"')))
         self.assertIsNotNone(self.refused(shell("grep ERROR build/logs/latest.log DESIGN.md")))
 
+    def test_line_windows_over_the_limit(self):
+        self.put("app/long.py", "x = 1\n" * 300)
+        self.put("docs/notes.md", "line\n" * 300)
+        self.commit()
+        for command in ("sed -n '1,200p' app/long.py", 'sed -n "100,+80p" docs/notes.md', "sed -n '200,$p' app/long.py",
+                        "sed -ne '1,40p;100,140p' app/long.py", "head -n 100 app/long.py", "head -100 docs/notes.md",
+                        "head --lines=61 app/long.py", "tail -n 80 app/long.py", "tail -n +200 app/long.py",
+                        "awk 'NR>=10 && NR<=200' app/long.py", "awk 'NR>100' docs/notes.md",
+                        "awk 'NR==10,NR==90' app/long.py", "cd docs && sed -n '1,100p' notes.md"):
+            reason = self.refused(shell(command))
+            self.assertIsNotNone(reason, command)
+            self.assertIn("shell_window_lines", reason)
+        self.assertIn("docs.py sig <Name>", self.refused(shell("head -n 100 app/long.py")))
+        self.assertIn("prints 191 lines of app/long.py", self.refused(shell("awk 'NR>=10 && NR<=200' app/long.py")))
+
+    def test_small_windows_and_other_reads_pass(self):
+        self.put("app/long.py", "x = 1\n" * 300)
+        self.put(".gitignore", "ignored.txt\n/run/\n")
+        self.put("run/server.log", "x\n" * 300)
+        self.commit()
+        for command in ("sed -n '10,69p' app/long.py", "head -n 60 app/long.py", "head app/long.py", "tail -5 app/long.py",
+                        "tail -n +250 app/long.py", "awk 'NR>=10 && NR<=60' app/long.py", "sed -n '5p' app/long.py",
+                        "git log | head -n 500", "python x.py | tail -n 200", "tail -n 200 run/server.log",
+                        "head -n 200 build/out.txt", "sed 's/a/b/' app/long.py", "awk '{print $1}' app/long.py",
+                        "tail -f app/long.py", "head -c 9000 app/long.py", "sed -n '/def /p' app/long.py"):
+            self.assertIsNone(self.refused(shell(command)), command)
+
+    def test_a_window_on_a_shell_read_path_passes(self):
+        self.put("tools/leanground.json", json.dumps({"shell_read_paths": ["docs/data/*.md"], "shell_window_lines": 10}))
+        self.put("docs/data/table.md", "row\n" * 100)
+        self.put("docs/other.md", "row\n" * 100)
+        self.commit()
+        self.assertIsNone(self.refused(shell("head -n 50 docs/data/table.md")))
+        self.assertIn("over 10", self.refused(shell("head -n 50 docs/other.md")))
+        self.assertIsNone(self.refused(shell("head -n 10 docs/other.md")))
+
+    def test_an_equals_sign_is_part_of_a_path_but_not_of_an_option(self):
+        self.put("docs/a=b.md", "x\n")
+        self.commit()
+        self.assertIsNotNone(self.refused(shell("cat docs/a=b.md")))
+        self.assertIsNotNone(self.refused(shell("grep --file=DESIGN.md x")))
+        base = str(self.repo)
+        self.assertEqual(os.path.normpath(os.path.join(base, "docs/a=b.md")), search_gate.as_path("docs/a=b.md", base))
+        self.assertEqual(os.path.normpath(os.path.join(base, "x.md")), search_gate.as_path("--file=x.md", base))
+
     def test_a_long_source_file_read_whole(self):
         self.put("app/long.py", "x = 1\n" * 10)
         read = {"tool_name": "Read", "tool_input": {"file_path": str(self.repo / "app/long.py")}}
@@ -224,6 +273,63 @@ class StopCheck(Repo):
     def test_untracked_files_are_not_a_reminder(self):
         self.put("scratch.txt", "x")
         self.assertIsNone(stop_check.reminder(self.repo))
+
+
+FAILING_CHECK = ("import pathlib, sys\npathlib.Path('ignored.txt').write_text('ran')\n"
+                 "print('  LEDGER.md:1  a stub problem')\nprint('1 problems.')\nsys.exit(1)\n")
+KIT = Path(__file__).resolve().parent.parent
+
+
+class PreCommit(Repo):
+    def setUp(self):
+        super().setUp()
+        self.put("tools/docs.py", FAILING_CHECK)
+        self.commit()
+
+    def run_hook(self):
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            code = pre_commit.main(self.repo)
+        return code, err.getvalue()
+
+    def test_the_guarded_files(self):
+        staged = ["app/main.py", ".claude/skills/x/SKILL.md", "LEDGER.md", "DESIGN.md", "notes/x.md", "CLAUDE.md",
+                  "AGENTS.md", "docs/other.md"]
+        self.assertEqual([".claude/skills/x/SKILL.md", "LEDGER.md", "DESIGN.md", "notes/x.md", "CLAUDE.md", "AGENTS.md"],
+                         pre_commit.guarded(staged, {"notes/x.md": 100}))
+
+    def test_check_runs_only_for_a_guarded_file(self):
+        self.put("app/main.py", "x = 2\n")
+        git(self.repo, "add", "-A")
+        self.assertEqual((0, ""), self.run_hook())
+        self.assertFalse((self.repo / "ignored.txt").exists())
+        self.put(".claude/agents/a.md", "# A\n")
+        git(self.repo, "add", "-A")
+        code, err = self.run_hook()
+        self.assertEqual(1, code)
+        self.assertIn("Commit refused: it stages .claude/agents/a.md", err)
+        self.assertIn("LEDGER.md:1  a stub problem", err)
+        self.put("tools/docs.py", "print('Everything resolves.')\n")
+        git(self.repo, "add", "-A")
+        self.assertEqual((0, ""), self.run_hook())
+
+    def test_a_real_commit_through_the_hook(self):
+        shutil.copy(KIT / ".githooks" / "pre-commit", self.repo / "hooks-pre-commit")
+        (self.repo / "hooks").mkdir()
+        shutil.move(self.repo / "hooks-pre-commit", self.repo / "hooks" / "pre-commit")
+        shutil.copy(KIT / "tools" / "pre_commit.py", self.repo / "tools" / "pre_commit.py")
+        git(self.repo, "add", "-A")
+        git(self.repo, "commit", "-q", "-m", "Hooks")
+        git(self.repo, "config", "core.hooksPath", "hooks")
+        self.put("DESIGN.md", "# Changed\n")
+        git(self.repo, "add", "-A")
+        refused = subprocess.run(["git", "commit", "-q", "-m", "x"], cwd=self.repo, capture_output=True, encoding="utf-8")
+        self.assertNotEqual(0, refused.returncode)
+        self.assertIn("a stub problem", refused.stderr)
+        git(self.repo, "reset", "-q", "--hard")
+        self.put("app/main.py", "x = 3\n")
+        git(self.repo, "add", "-A")
+        git(self.repo, "commit", "-q", "-m", "Untouched")
 
 
 class CommitMessage(unittest.TestCase):

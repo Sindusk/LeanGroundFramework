@@ -13,12 +13,18 @@
   "source_roots": [],
   "long_file_lines": 400,
   "shell_read_paths": [],
-  "subagent_build_past": 200000,
+  "shell_window_lines": 60,
+  "section_cap": 5000,
+  "handoff_past": 200000,
+  "retro_after_lessons": 15,
+  "test_report": "",
   "commands": {
     "build": "",
     "test": "",
+    "check_changed": "",
     "verify": "",
-    "run": ""
+    "run": "",
+    "stop": ""
   },
   "budgets": {
     "CLAUDE.md": 1250,
@@ -53,6 +59,7 @@
     "tools/edit_gate.py",
     "tools/stop_check.py",
     "tools/commit_msg.py",
+    "tools/pre_commit.py",
     "tools/test_hooks.py",
     ".gitattributes",
     ".claude/skills/lg-package/",

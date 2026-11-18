@@ -6,7 +6,7 @@ argument-hint: "[a pitch, or the path of existing code to adopt]"
 
 # lg-bootstrap
 
-Run once per project, in a session of its own. The kit's documents hold `{{PROJECT}}`, `{{PREFIX}}`, `{{OWNER}}` and `{{BRANCH}}` placeholders and `<!-- bootstrap: … -->` comments saying what belongs in each spot; this skill fills every one, then deletes the comment. `LEANGROUND.md` explains the kit. The skeletons are small, so this is the one task that reads `DESIGN.md` and `LEDGER.md` whole; every later task reads them by block.
+Run once per project, in a session of its own. The kit's documents hold `{{PROJECT}}`, `{{PREFIX}}`, `{{OWNER}}` and `{{BRANCH}}` placeholders and `<!-- bootstrap: … -->` comments saying what belongs in each spot; this skill fills every one, then deletes the comment. The skeletons are small, so this is the one task that reads `DESIGN.md` and `LEDGER.md` whole; every later task reads them by block.
 
 **What is invented and what is asked.** The owner's words fill the documents; where they leave a gap, write the recommendation only for routine detail and say so in the summary. A real design choice is never invented: it becomes a numbered question in `DESIGN.md` 6.2 (step 4), for the first design round.
 
@@ -23,13 +23,13 @@ Follow `interview.md`: one message of free-text questions, then one AskUserQuest
 
 ## 3. Fill the documents
 
-Edit each file with the Edit tool (`replace_all` for a placeholder), never the shell, in this order, so each can cite the earlier:
+Edit each file with the Edit tool (`replace_all` for a placeholder) in this order, so each can cite the earlier:
 
-1. **`tools/leanground.json`:** `project`, `prefix`, `owner`, `collaborators`, `branch`, `push_on_commit`, `shell`, `source_roots`, the `commands` (`LEANGROUND.md` "Settings" says what each means), `commit_body`. Leave `bootstrapped` false until step 6.
+1. **`tools/leanground.json`:** `project`, `prefix`, `owner`, `collaborators`, `branch`, `push_on_commit`, `commit_body`, `shell`, `source_roots`, `test_report`, and the `commands`, `check_changed` and `stop` among them (`LEANGROUND.md` "Settings" says what each means). Leave `bootstrapped` false until step 6.
 2. **`DESIGN.md`:** the title line, sections 1 to 3; one `### 4.n` heading per system with a paragraph of intent; 5 and 7 to 10 ("None yet." where the owner has nothing); 6.5's first release if named. Section numbers 1 to 11 never change: tools and agents cite them. Contents: `python tools/docs.py toc DESIGN.md`.
 3. **`LEDGER.md`:** one Undesigned line and one `### Name` block per Initiative the owner named, each block a paragraph of intent with the sections it touches; the Contents from `toc LEDGER.md`. The next package ID stays 100.
-4. **`CLAUDE.md`:** the opening paragraph and the project's own "Always" rules, each citing its section. Keep it within its budget (`python tools/docs.py budget`); detail goes to `working-agreements.md`, which `CLAUDE.md` routes to.
-5. **`docs/agent-notes/working-agreements.md`:** "Writing documents", "Shell and editing", "Build and verify" (each command, quietly filtered, and the test layers), "Manual checks", "Owner preferences".
+4. **`CLAUDE.md`:** the opening paragraph and the project's own "Always" rules, each citing its section. Keep it within its budget (`python tools/docs.py budget`); detail goes to `working-agreements.md`.
+5. **`docs/agent-notes/working-agreements.md`:** "Writing documents", "Shell and editing", "Build and verify" (each command, quietly filtered, the test layers, CI if any), "Manual checks", "Owner preferences".
 6. **`docs/agent-notes/where-things-live.md`:** "Wiring", "Layers" and "Debug commands" from the stack, each line marked "(planned)" until code exists; "Systems" stays "None yet." for a new project (`adopt.md` for existing code).
 7. **`design-questions.md`:** the glossary, one term per project word a reader outside the project would not know.
 8. **Permissions:** don't edit `.claude/settings.json` (it governs the agent's own permissions, so its edit is the owner's). Give the owner, in the summary, a `permissions.allow` list for the build and test commands to add there.

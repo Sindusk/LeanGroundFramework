@@ -1,7 +1,7 @@
 """Prints one block of the project's documents, so an agent reads what its task needs and no more.
 
 Standard library only; read-only except `status`, `close`, `close-initiative`, `drop`, `record`, `raise`,
-`round add`, `history add` and `ledger insert` / `ledger replace`. Settings (the package ID prefix, the
+`round add`, `history add`, `lesson add` and `ledger insert` / `ledger replace`. Settings (the package ID prefix, the
 owner, budgets, source roots) come from tools/leanground.json. XX below stands for the project's prefix.
 Run from the repository root:
 
@@ -11,7 +11,9 @@ Run from the repository root:
     python tools/docs.py help close where              only those commands' usage lines (a word no command
                                                        starts with: the lines mentioning it); help alone, all
     python tools/docs.py "Search Filters"              an Initiative: its ledger lines and its block
-    python tools/docs.py 4.2.1                         a DESIGN.md section, its subsections included
+    python tools/docs.py 4.2.1                         a DESIGN.md section, its subsections included; one over
+                                                       section_cap tokens (5,000 by default) with subsections
+                                                       prints its own text and its subsections' menu instead
     python tools/docs.py 4.2.1 --grep "cache|retry"    only its lines matching a pattern, any case, each cut to 80
                                                        characters either side of its matches; --full anywhere
                                                        in a call prints the matching lines whole
@@ -51,15 +53,26 @@ Run from the repository root:
                                                        matches its document's headings, no open question's
                                                        number is asked twice, no tracked document outside the
                                                        archive uses a gendered pronoun, no placeholder is left
-                                                       once bootstrapped, and each file an agent loads unasked
-                                                       is within its budget
+                                                       once bootstrapped, each file an agent loads unasked
+                                                       is within its budget, and every `python tools/docs.py`
+                                                       command a skill or agent names exists; notes, without
+                                                       failing, a lessons queue past retro_after_lessons lines
     python tools/docs.py budget                        those files (CLAUDE.md, AGENTS.md, skills and their stage
                                                        files, agents, skill descriptions) with tokens against
                                                        budget, their package-id anecdotes, and sentences two
                                                        of them repeat
     python tools/docs.py context                       this session's context at its last request and its peak,
-                                                       from the newest transcript of this checkout, against the
-                                                       size past which the lg-package skill hands a build to a subagent
+                                                       and its first request's (the fixed entrance every later
+                                                       request pays), from the newest transcript of this
+                                                       checkout, against the ceiling handoff_past: past it,
+                                                       finish the item in hand and hand over to a new session
+    python tools/docs.py failures [--full]             the failed tests of the last run, from the JUnit-style
+                                                       report test_report names (a path, a folder or a glob):
+                                                       each test, its file or class and its message's first
+                                                       line; --full, the whole messages
+    python tools/docs.py lesson add "<line>"           appends one line to docs/agent-notes/lessons.md (a "- "
+                                                       put before it if missing), never rewriting the file, and
+                                                       prints how many lessons wait for a retro
     python tools/docs.py status XX-nnn being built     writes a package's status on its ledger line, then checks;
                                                        a status the ledger check would fault is not written
     python tools/docs.py close XX-nnn [--steps 14] [--date 2026-10-23]
@@ -146,12 +159,14 @@ Tokens are estimated as characters / 4.
 """
 
 import datetime
+import glob
 import importlib.util
 import json
 import re
 import subprocess
 import sys
 from pathlib import Path
+from xml.etree import ElementTree
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -169,6 +184,7 @@ ARCHIVE_INDEX = "docs/archive/README.md"
 RECORDS_DIR = "docs/archive/initiatives"
 WORKING = "docs/initiatives/"
 PLUGIN = "tools/project_docs.py"
+LESSONS = "docs/agent-notes/lessons.md"
 
 # Read as records, not routes: their citations are of their own day, so check never follows them.
 RECORDS = (HISTORY,)
@@ -189,7 +205,13 @@ DEFAULTS = {
     "bootstrapped": False,
     "budgets": {},
     "source_roots": [],
-    "subagent_build_past": 200_000,
+    # A section bigger than this prints as --own and its menu: whole, it overflows the tool result into a file
+    # the agent then reads back, twice the context (an 8,400-token section, about 17k tokens twice).
+    "section_cap": 5000,
+    # Every request resends the whole context; past this, a session finishes its item and hands over.
+    "handoff_past": 200_000,
+    "retro_after_lessons": 15,
+    "test_report": "",
 }
 
 
@@ -919,14 +941,23 @@ def unfiltered_note(specs):
     return None
 
 
-def show_section(design, heading, own, pattern):
+def show_section(design, heading, own, pattern, cap=DEFAULTS["section_cap"]):
+    """A section whole, or with own its text and its subsections' menu; one over cap tokens that has
+    subsections always prints as with own, since whole it would overflow the tool result."""
     if pattern:
         start, end = (own_block if own else heading_block)(design, heading)
         print_grep(design, start, end, pattern, heading[2])
         return
-    if not own:
+    whole = tokens(design.text(*heading_block(design, heading)))
+    if not own and (whole <= cap or not subsections(design, heading)):
         print_block(design, *heading_block(design, heading), heading[2])
         return
+    if not own:
+        first = section_number(subsections(design, heading)[0][2])
+        print(f"{heading[2]} is ~{whole:,} tokens whole, over section_cap ({cap:,}): its own text and its"
+              f" subsections' menu follow. Read a subsection by its number (python tools/docs.py {first}),"
+              " or add --grep PATTERN.")
+        print()
     print_block(design, *own_block(design, heading), heading[2] + ", without its subsections")
     subs = subsections(design, heading)
     if subs:
@@ -1109,6 +1140,54 @@ def source_files(repo, sources=None):
             and (not roots or any(name.startswith(root.rstrip("/") + "/") for root in roots))]
 
 
+# The commands main answers, by first word; test_docs checks the usage lines above name no other.
+DOCS_COMMANDS = ("help", "check", "budget", "context", "failures", "lesson", "status", "close", "close-initiative",
+                 "drop", "round", "raise", "record", "decisions", "history", "ledger", "orphans", "sig", "where",
+                 "toc", "tail", "outline", "section", "question")
+# A command that does nothing without this second word.
+SUBCOMMANDS = {"history": "add", "lesson": "add"}
+NAMED_COMMAND = re.compile(r"python3? tools[/\\]docs\.py[ \t]+([^\s`]+)(?:[ \t]+([^\s`]+))?")
+
+
+def is_lookup(word):
+    """Whether a docs.py argument reads a block rather than naming a command: a placeholder (<section>), a
+    quoted name, an option, a section number, a question, a package id, a file path, or a capitalised word
+    (an Initiative named unquoted)."""
+    return (word[:1] in "<\"'{[-" or re.fullmatch(r"\d+(?:\.\d+)*\.?", word) is not None
+            or re.fullmatch(r"(?i)q\d+", word) is not None or "." in word or "/" in word or word[:1].isupper())
+
+
+def unknown_commands(repo, files):
+    """Each `python tools/docs.py <word>` in a skill or agent file whose word is neither a command of the tool
+    (or of tools/project_docs.py) nor a block lookup, as problems: a step naming a command that does not exist."""
+    known = set(DOCS_COMMANDS) | set(project_commands(repo))
+    problems = []
+    for name in files:
+        if not name.startswith((SKILLS, AGENTS)):
+            continue
+        for n, text in enumerate((Path(repo) / name).read_text(encoding="utf-8").split("\n"), 1):
+            for match in NAMED_COMMAND.finditer(text):
+                word, second = (part.rstrip(".,;:)") if part else part for part in match.groups())
+                if not word or is_lookup(word):
+                    continue
+                if word not in known:
+                    problems.append((name, n, f"names `python tools/docs.py {word}`, which is no command of the tool;"
+                                              " python tools/docs.py help lists them"))
+                elif word in SUBCOMMANDS and second != SUBCOMMANDS[word]:
+                    shown = f"{word} {second}" if second else word
+                    problems.append((name, n, f"names `python tools/docs.py {shown}`, where {word} needs"
+                                              f" {SUBCOMMANDS[word]}: python tools/docs.py help {word}"))
+    return problems
+
+
+def lessons_waiting(repo):
+    """How many lessons docs/agent-notes/lessons.md queues (its lines starting "- "); None without the file."""
+    path = Path(repo) / LESSONS
+    if not path.is_file():
+        return None
+    return sum(1 for line in path.read_text(encoding="utf-8").split("\n") if line.startswith("- "))
+
+
 def find_problems(repo, files, sources=()):
     """Everything check reports, as (file, line, detail), and a one-line summary.
 
@@ -1129,6 +1208,7 @@ def find_problems(repo, files, sources=()):
         all_ids.update(int(n) for n in ids.any.findall(text))
     problems += check_ledger(ledger, design, all_ids, working_questions(repo, files))
     problems += check_budgets(repo, files)
+    problems += unknown_commands(repo, files)
     problems += reused_numbers(repo, files)
 
     live = [f for f in files if not f.startswith(ARCHIVE) and f not in RECORDS]
@@ -1309,8 +1389,9 @@ def transcript_dir(repo):
 
 
 def context_use(lines):
-    """(requests, prompt tokens of the last request, peak) from a transcript's lines, one per API response."""
-    seen, last, peak = set(), 0, 0
+    """(requests, prompt tokens of the first request, of the last, peak) from a transcript's lines, one per API
+    response. The first is the fixed entrance (instructions, tools, the opening reads) every later request pays."""
+    seen, first, last, peak = set(), 0, 0, 0
     for line in lines:
         if '"usage"' not in line:
             continue
@@ -1325,24 +1406,126 @@ def context_use(lines):
         seen.add(message.get("id"))
         last = (usage.get("input_tokens", 0) + usage.get("cache_creation_input_tokens", 0)
                 + usage.get("cache_read_input_tokens", 0))
+        first = first or last
         peak = max(peak, last)
-    return len(seen), last, peak
+    return len(seen), first, last, peak
+
+
+def ceiling_line(last, ceiling):
+    """Whether a session at last tokens of context is past handoff_past, and what it does then."""
+    if last > ceiling:
+        return (f"past the {ceiling // 1000}k ceiling (handoff_past): finish the item in hand, start no other,"
+                " and give the owner a self-contained, paste-ready prompt for a new session")
+    return f"within the {ceiling // 1000}k ceiling (handoff_past): carry on"
 
 
 def show_context(repo):
     folder = transcript_dir(repo)
+    ceiling = config(repo)["handoff_past"]
     transcripts = sorted(folder.glob("*.jsonl"), key=lambda path: path.stat().st_mtime) if folder.is_dir() else []
     if not transcripts:
-        print(f"No transcripts in {folder} (a session started in another folder keeps them there). Judge by the"
-              " plan instead: past about 20 files, the build goes to subagents.")
+        print(f"No transcripts in {folder} (a session started in another folder keeps them there). The ceiling is"
+              f" {ceiling // 1000}k (handoff_past): judge the session's length by its work instead.")
         return 1
     newest = transcripts[-1]
-    requests, last, peak = context_use(newest.read_text(encoding="utf-8", errors="replace").splitlines())
-    past = config(repo)["subagent_build_past"]
+    requests, first, last, peak = context_use(newest.read_text(encoding="utf-8", errors="replace").splitlines())
     print(f"session {newest.stem[:8]}: {last // 1000}k of context at the last request, peak {peak // 1000}k,"
           f" {requests} requests")
-    print(f"at the rules commit, past {past // 1000}k a subagent builds (the lg-package skill)")
+    if first:
+        print(f"first request {first // 1000}k: the fixed entrance each later request pays again")
+    print(ceiling_line(last, ceiling))
     return 0
+
+
+# --- lessons and test failures -----------------------------------------------------------------
+
+
+def add_lesson(repo, line):
+    """Appends one line to the lessons queue, never rewriting the file (a rewrite once lost its header), and
+    prints the queue's length. A line not starting "- " gets it."""
+    path = Path(repo) / LESSONS
+    line = line.strip()
+    if not line or "\n" in line:
+        print('lesson add takes one line: python tools/docs.py lesson add "- XX-nnn: <what> → <the change>"')
+        return 1
+    if not path.is_file():
+        print(f"No {LESSONS}: it holds the queue's header, so lesson add never creates it. Restore it from the kit.")
+        return 1
+    if not line.startswith("- "):
+        line = "- " + line
+    text = path.read_text(encoding="utf-8")
+    waiting = lessons_waiting(repo)
+    # The first lesson starts a list, so a blank line parts it from the header's prose.
+    ending = "\n" if waiting else "\n\n"
+    lead = "" if not text or text.endswith(ending) else ending[len(text) - len(text.rstrip("\n")):]
+    with open(path, "a", encoding="utf-8", newline="\n") as queue:
+        queue.write(lead + line + "\n")
+    waiting += 1
+    due = config(repo)["retro_after_lessons"]
+    print(f"Added to {LESSONS}: {waiting} lesson{'s wait' if waiting != 1 else ' waits'} for a retro"
+          + (f", past retro_after_lessons ({due}): a retro is due." if waiting > due else "."))
+    return 0
+
+
+def report_files(repo, setting):
+    """The XML files test_report names: a file, every .xml under a folder, or a glob's matches."""
+    path = Path(setting) if Path(setting).is_absolute() else Path(repo) / setting
+    if any(char in setting for char in "*?["):
+        return sorted(Path(found) for found in glob.glob(str(path), recursive=True) if Path(found).is_file())
+    if path.is_dir():
+        return sorted(path.rglob("*.xml"))
+    return [path] if path.is_file() else []
+
+
+def test_failures(paths):
+    """(tests run, [(test, file or class, message)], [(path, why unreadable)]) from JUnit-style reports: each
+    <failure> or <error> of a <testcase>, its message attribute and text joined."""
+    count, failed, unreadable = 0, [], []
+    for path in paths:
+        try:
+            root = ElementTree.parse(path).getroot()
+        except (ElementTree.ParseError, OSError) as error:
+            unreadable.append((path, str(error)))
+            continue
+        for case in root.iter("testcase"):
+            count += 1
+            for outcome in case:
+                if outcome.tag not in ("failure", "error"):
+                    continue
+                message, text = (outcome.get("message") or "").strip(), (outcome.text or "").strip()
+                whole = message + ("\n" + text if text and text != message else "") if message else text
+                failed.append((case.get("name", "?"), case.get("file") or case.get("classname") or path.name,
+                               whole or f"(a {outcome.tag} with no message)"))
+    return count, failed, unreadable
+
+
+def show_failures(repo, full=False):
+    setting = config(repo)["test_report"]
+    if not setting:
+        print(f"This project has not set test_report in {CONFIG}: the path, folder or glob of the JUnit-style XML"
+              " report its test runner writes.")
+        return 1
+    paths = report_files(repo, setting)
+    if not paths:
+        print(f"No test report at {setting} (test_report): run the tests first, or correct the setting.")
+        return 1
+    count, failed, unreadable = test_failures(paths)
+    written = datetime.datetime.fromtimestamp(max(p.stat().st_mtime for p in paths)).strftime("%Y-%m-%d %H:%M")
+    for path, why in unreadable:
+        print(f"Could not read {path}: {why}")
+    if not failed:
+        print(f"No failures: {count} tests in {len(paths)} report file{'s' if len(paths) != 1 else ''}"
+              f" ({setting}), written {written}.")
+        return 1 if unreadable or not count else 0
+    print(f"== {len(failed)} failed of {count} tests  {setting}, written {written}")
+    print()
+    for name, where, message in failed:
+        if full:
+            print(f"{name}  ({where})")
+            print("\n".join("    " + line for line in message.split("\n")))
+        else:
+            print(f"{name}  ({where})  {message.split(chr(10))[0]}")
+    return 1
 
 
 def is_core(repo, name):
@@ -1354,6 +1537,10 @@ def check(files, repo=REPO):
     sources = [name for name in source_files(repo) if not is_core(repo, name)]
     problems, summary = find_problems(repo, files, sources)
     print(summary)
+    waiting, due = lessons_waiting(repo), config(repo)["retro_after_lessons"]
+    if waiting is not None and waiting > due:
+        # A notice, not a problem: a retro is the owner's to call, and a queue never blocks a commit.
+        print(f"Notice: {waiting} lessons wait in {LESSONS}; a retro is due (past retro_after_lessons, {due}).")
     if not problems:
         print("Everything resolves.")
         return 0
@@ -2675,6 +2862,8 @@ def main(args, repo=REPO):
     if not args or args[0] in ("-h", "--help", "help"):
         print(help_text(repo))
         return 0 if args else 1
+    if args[0] == "failures" and args[1:] in ([], ["--full"]):
+        return show_failures(Path(repo), full=len(args) == 2)
     if "--full" in args:
         args = [arg for arg in args if arg != "--full"]
         grep_window = None
@@ -2695,6 +2884,8 @@ def main(args, repo=REPO):
         return show_budgets(repo, files)
     if target == "context" and len(args) == 1:
         return show_context(repo)
+    if target == "lesson" and len(args) >= 2 and args[1] == "add":
+        return add_lesson(repo, " ".join(args[2:]))
     if target == "tail" and len(args) in (2, 3) and (len(args) == 2 or args[2].isdigit()):
         name = resolve_file(args[1], files)
         if name is None:
@@ -2882,7 +3073,7 @@ def main(args, repo=REPO):
         for n, (number, own, pattern) in enumerate(specs):
             if n:
                 print()
-            show_section(design, find_section(design, number), own, pattern)
+            show_section(design, find_section(design, number), own, pattern, config(repo)["section_cap"])
         note = unfiltered_note(specs)
         if note:
             print()
