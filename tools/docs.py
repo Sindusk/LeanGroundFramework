@@ -16,7 +16,11 @@ Run from the repository root:
                                                        same policy line
     python tools/docs.py 4.2.1                         a DESIGN.md section, its subsections included; one over
                                                        section_cap tokens (5,000 by default) with subsections
-                                                       prints its own text and its subsections' menu instead
+                                                       prints its own text and its subsections' menu instead;
+                                                       text still over it prints as an outline, a line per
+                                                       paragraph, list item, table or fenced block (a point)
+    python tools/docs.py 4.2.1 --points 3,7-9          those points whole, numbered as the outline numbers them
+                                                       (with --own, the own text's points)
     python tools/docs.py 4.2.1 --grep "cache|retry"    only its lines matching a pattern, any case, each cut to 80
                                                        characters either side of its matches; --full anywhere
                                                        in a call prints the matching lines whole
@@ -960,10 +964,10 @@ def grep_option(args):
 
 
 def section_specs(args):
-    """Section requests, each a number with its own --own and --grep PATTERN: '4.3 --own 4.3.2 4.11 --grep x'
-    is three, only 4.11 filtered. A '--grep PATTERN' before the first number filters every section without
-    a pattern of its own: '--grep x 4.6.1 4.7.1'. A leading 'section' is allowed. None unless every argument
-    fits."""
+    """Section requests, each a number with its own --own, --grep PATTERN and --points LIST: '4.3 --own 4.3.2
+    4.11 --grep x' is three, only 4.11 filtered. A '--grep PATTERN' before the first number filters every
+    section without a pattern of its own: '--grep x 4.6.1 4.7.1'. A leading 'section' is allowed. None unless
+    every argument fits."""
     if len(args) == 1 and " " in args[0]:
         args = args[0].split()
     if args and args[0].lower() == "section":
@@ -975,53 +979,197 @@ def section_specs(args):
     while n < len(args):
         arg = args[n]
         if re.fullmatch(r"\d+(?:\.\d+)*\.?", arg):
-            specs.append([arg.rstrip("."), False, None])
+            specs.append([arg.rstrip("."), False, None, None])
         elif arg == "--own" and specs:
             specs[-1][1] = True
         elif arg == "--grep" and specs and n + 1 < len(args):
             n += 1
             specs[-1][2] = args[n].strip("\"'")
+        elif arg == "--points" and specs and n + 1 < len(args):
+            n += 1
+            specs[-1][3] = args[n].strip("\"'")
         else:
             return None
         n += 1
-    return [(number, own, pattern or shared) for number, own, pattern in specs] or None
+    return [(number, own, pattern or shared, chosen) for number, own, pattern, chosen in specs] or None
 
 
 def unfiltered_note(specs):
     """When some sections of a call have a pattern and others don't, the ones printed whole, said once, since
     '4.6.1 4.7.1 --grep x' reads as filtering both but filters only 4.7.1."""
-    whole = [number for number, _, pattern in specs if pattern is None]
+    whole = [number for number, _, pattern, _ in specs if pattern is None]
     if whole and len(whole) < len(specs):
         return (f"Note: --grep filters only the section before it, so {', '.join(whole)} printed whole."
                 " Put --grep first to filter every section: --grep PATTERN 4.6.1 4.7.1")
     return None
 
 
-def show_section(design, heading, own, pattern, cap=DEFAULTS["section_cap"]):
+OUTLINE_CAP = 1500  # tokens an outline may take; past it its leads get shorter, its points never fewer
+LEAD_WIDTHS = (100, 70, 45, 30, 15)  # characters a point's lead is cut to, tried in turn
+LIST_ITEM = re.compile(r"(?:[-*+]|\d+[.)])\s")
+FENCE_OPEN = re.compile(r"\s*(```|~~~)")
+
+
+def points(doc, start, end):
+    """The points of a block after its heading line, as [start, end, kind]: each top-level paragraph, list
+    item (its nested and continuation lines included), table, fenced block and heading is one."""
+    found, fence = [], None
+    for n in range(start + 1, end + 1):
+        line = doc.lines[n - 1]
+        if fence:
+            found[-1][1] = n
+            if line.strip().startswith(fence):
+                fence = None
+            continue
+        if not line.strip():
+            continue
+        opening = FENCE_OPEN.match(line)
+        kind = ("fence" if opening else "heading" if line.startswith("#") else "list" if LIST_ITEM.match(line)
+                else "table" if line.startswith("|") else "text")
+        last = found[-1] if found else None
+        indented = line[:1] in (" ", "\t")
+        # An indented line belongs to the point above; an unindented one only continues a paragraph or a
+        # table, or a list item's lazy continuation, on the very next line.
+        if last and (indented or last[1] == n - 1 and (kind == "text" and last[2] in ("text", "list")
+                                                        or kind == "table" == last[2])):
+            last[1] = n
+        else:
+            found.append([n, n, kind])
+        if opening:
+            fence = opening.group(1)
+    return found
+
+
+def first_sentence(text):
+    """Text up to its first '.', '?', '!' or ':' before a space or the end, outside `code`."""
+    code = False
+    for n, char in enumerate(text):
+        if char == "`":
+            code = not code
+        elif not code and char in ".?!:" and text[n + 1:n + 2] in ("", " "):
+            return text[:n + 1]
+    return text
+
+
+def point_lead(doc, point, width):
+    """A point's lead, cut to width characters: a table's header row and row count, a fenced block's first
+    line and line count, else the bold lead-in or, without one, the first sentence."""
+    start, end, kind = point
+    lines = doc.lines[start - 1:end]
+    if kind == "table":
+        rule = len(lines) > 1 and set(lines[1].strip()) <= set("|-: ")  # the row under the header
+        rows = len(lines) - 1 - rule
+        lead = f"table, {rows} rows: " + " | ".join(cell.strip() for cell in lines[0].strip().strip("|").split("|"))
+    elif kind == "fence":
+        first = lines[1].strip() if len(lines) > 2 else ""
+        lead = f"{lines[0].strip()} {len(lines)} lines: {first}"
+    else:
+        text = re.sub(r"^(?:#+|[-*+]|\d+[.)])\s+", "", " ".join(line.strip() for line in lines))
+        bold = LEAD.match(text)
+        lead = bold.group(1) if bold else first_sentence(text)
+    return lead if len(lead) <= width else lead[:width - 1].rstrip() + "…"
+
+
+def print_outline(doc, start, end, label, number, cap):
+    """A block over cap as one line per point instead of its text, with how to read points whole."""
+    found = points(doc, start, end)
+    for width in LEAD_WIDTHS:
+        lines = [f"{n:>5}  ~{tokens(doc.text(s, e)):,}  {point_lead(doc, (s, e, k), width)}"
+                 for n, (s, e, k) in enumerate(found, 1)]
+        if tokens("\n".join(lines)) <= OUTLINE_CAP:
+            break
+    print(f"{label} is ~{tokens(doc.text(start, end)):,} tokens, over section_cap ({cap:,}): an outline of its"
+          f" {len(found)} points follows, each with its tokens. Read points whole with python tools/docs.py"
+          f" {number} --points 3,7-9, or matching lines with --grep PATTERN.")
+    print()
+    cut = f", leads cut to {width} characters" if width < LEAD_WIDTHS[0] else ""
+    print(f"== {label}  {doc.name}:{start}-{end}  {len(found)} points{cut}")
+    print()
+    print("\n".join(lines))
+    print()
+
+
+def point_numbers(chosen):
+    """'3,7-9' as [3, 7, 8, 9]; None when it is not such a list."""
+    numbers = set()
+    for part in chosen.split(","):
+        bounds = re.fullmatch(r"\s*(\d+)\s*(?:-\s*(\d+)\s*)?", part)
+        if not bounds or int(bounds.group(2) or bounds.group(1)) < int(bounds.group(1)):
+            return None
+        numbers.update(range(int(bounds.group(1)), int(bounds.group(2) or bounds.group(1)) + 1))
+    return sorted(numbers)
+
+
+def show_points(doc, start, end, label, chosen, pattern):
+    """The chosen points of a block whole, or with a pattern only their matching lines; 1 for a bad list."""
+    found = points(doc, start, end)
+    numbers = point_numbers(chosen)
+    if numbers is None:
+        print(f'--points takes numbers and ranges such as 3,7-9, not "{chosen}".')
+        return 1
+    wrong = [n for n in numbers if not 1 <= n <= len(found)]
+    if wrong:
+        print(f"{label} has {len(found)} points (1-{len(found)}); {', '.join(map(str, wrong))} is out of range.")
+        return 1
+    picked = [(n, *found[n - 1][:2]) for n in numbers]
+    if pattern:
+        hits = [hit for _, s, e in picked for hit in grep_block(doc, s, e, pattern, grep_window)]
+        print(f"== {label}, points {chosen}: lines matching {pattern}, {len(hits)} of"
+              f" {sum(e - s + 1 for _, s, e in picked)}")
+        print()
+        for n, line in hits:
+            print(f"{doc.name}:{n}  {line}")
+        return 0
+    size = sum(tokens(doc.text(s, e)) for _, s, e in picked)
+    print(f"== {label}, points {chosen} of {len(found)}  ~{size:,} tokens")
+    print()
+    for n, s, e in picked:
+        print(f"-- point {n}  {doc.name}:{s}-{e}")
+        print(doc.text(s, e))
+        print()
+    return 0
+
+
+def show_section(design, heading, own, pattern, cap=DEFAULTS["section_cap"], chosen=None):
     """A section whole, or with own its text and its subsections' menu; one over cap tokens that has
-    subsections always prints as with own, since whole it would overflow the tool result."""
+    subsections always prints as with own, since whole it would overflow the tool result. Text still over cap,
+    a flat section or that own text, prints as an outline of its points; chosen ('3,7-9') prints those points
+    of the text a plain call would print or outline. 1 when chosen names no such points."""
+    whole = tokens(design.text(*heading_block(design, heading)))
+    subs = subsections(design, heading)
+    capped = whole > cap and bool(subs)
+    number = section_number(heading[2])
+    if chosen is not None:
+        start, end = (own_block if own or capped else heading_block)(design, heading)
+        return show_points(design, start, end, heading[2], chosen, pattern)
     if pattern:
         start, end = (own_block if own else heading_block)(design, heading)
         print_grep(design, start, end, pattern, heading[2])
-        return
-    whole = tokens(design.text(*heading_block(design, heading)))
-    if not own and (whole <= cap or not subsections(design, heading)):
-        print_block(design, *heading_block(design, heading), heading[2])
-        return
+        return 0
+    if not own and not capped:
+        if whole <= cap:
+            print_block(design, *heading_block(design, heading), heading[2])
+        else:
+            print_outline(design, *heading_block(design, heading), heading[2], number, cap)
+        return 0
     if not own:
-        first = section_number(subsections(design, heading)[0][2])
+        first = section_number(subs[0][2])
         print(f"{heading[2]} is ~{whole:,} tokens whole, over section_cap ({cap:,}): its own text and its"
               f" subsections' menu follow. Read a subsection by its number (python tools/docs.py {first}),"
               " or add --grep PATTERN.")
         print()
-    print_block(design, *own_block(design, heading), heading[2] + ", without its subsections")
-    subs = subsections(design, heading)
+    start, end = own_block(design, heading)
+    if tokens(design.text(start, end)) > cap:
+        print_outline(design, start, end, heading[2] + ", without its subsections", number, cap)
+    else:
+        print_block(design, start, end, heading[2] + ", without its subsections")
     if subs:
         print("== Its subsections")
         print()
         for sub in subs:
             print(section_menu_line(design, section_number(sub[2])))
         print()
+    return 0
 
 
 # --- where things live -------------------------------------------------------------------------
@@ -3533,19 +3681,21 @@ def main(args, repo=REPO):
     specs = section_specs(args)
     if specs:
         design = load(DESIGN, repo)
-        missing = [number for number, _, _ in specs if find_section(design, number) is None]
+        missing = [number for number, *_ in specs if find_section(design, number) is None]
         if missing:
             print(f"{DESIGN} has no section {', '.join(missing)}. Its outline: python tools/docs.py {DESIGN}")
             return 1
-        for n, (number, own, pattern) in enumerate(specs):
+        code = 0
+        for n, (number, own, pattern, chosen) in enumerate(specs):
             if n:
                 print()
-            show_section(design, find_section(design, number), own, pattern, config(repo)["section_cap"])
+            code = max(code, show_section(design, find_section(design, number), own, pattern,
+                                          config(repo)["section_cap"], chosen))
         note = unfiltered_note(specs)
         if note:
             print()
             print(note)
-        return 0
+        return code
 
     if target == "sig" and len(args) >= 2:
         return show_signatures(repo, args[1:])

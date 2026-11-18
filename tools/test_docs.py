@@ -842,10 +842,63 @@ class SectionCap(Repo):
         self.assertIn("Short.", out)
         self.assertNotIn("section_cap", out)
 
-    def test_a_long_section_without_subsections_prints_whole(self):
-        doc = docs.Doc("DESIGN.md", "## 4. A\n\n" + "word " * 5000 + "\n")
+    LONG = ("## 4. A\n\n**First lead.** " + "word " * 3000 + "\n\nA plain sentence. Then more " + "word " * 3000
+            + "\n\n- **An item** with\n  - a nested line\n\n| Col | Other |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n\n"
+            + "```python\ndef f():\n\n    return 1\n```\n\nLast.\n")
+
+    def test_a_long_section_without_subsections_prints_an_outline(self):
+        doc = docs.Doc("DESIGN.md", self.LONG)
+        code, out = run(docs.show_section, doc, docs.find_section(doc, "4"), False, None)
+        self.assertEqual(0, code)
+        self.assertIn("over section_cap (5,000): an outline of its 6 points", out)
+        self.assertIn("python tools/docs.py 4 --points 3,7-9", out)
+        self.assertNotIn("word word", out)
+        self.assertIn("    1  ~3,754  First lead.\n", out)
+        self.assertIn("  A plain sentence.\n", out)
+        self.assertIn("  An item\n", out)
+        self.assertIn("table, 2 rows: Col | Other", out)
+        self.assertIn("```python 5 lines: def f():", out)
+        self.assertIn("    6  ~1  Last.", out)
+
+    def test_a_table_and_a_fenced_block_are_one_point_each(self):
+        doc = docs.Doc("DESIGN.md", self.LONG)
+        kinds = [kind for _, _, kind in docs.points(doc, *docs.heading_block(doc, docs.find_section(doc, "4")))]
+        self.assertEqual(["text", "text", "list", "table", "fence", "text"], kinds)
+
+    def test_points_prints_the_chosen_points_and_refuses_a_bad_number(self):
+        doc = docs.Doc("DESIGN.md", self.LONG)
+        code, out = run(docs.show_section, doc, docs.find_section(doc, "4"), False, None, 5000, "3-4,6")
+        self.assertEqual(0, code)
+        self.assertIn("-- point 3  DESIGN.md:", out)
+        self.assertIn("  - a nested line", out)
+        self.assertIn("| 3 | 4 |", out)
+        self.assertIn("Last.", out)
+        self.assertNotIn("word", out)
+        code, out = run(docs.show_section, doc, docs.find_section(doc, "4"), False, None, 5000, "2,7")
+        self.assertEqual(1, code)
+        self.assertIn("has 6 points (1-6); 7 is out of range", out)
+        self.assertEqual(1, run(docs.show_section, doc, docs.find_section(doc, "4"), False, None, 5000, "x")[0])
+        code, out = run(docs.show_section, doc, docs.find_section(doc, "4"), False, "nested", 5000, "1,3")
+        self.assertIn("lines matching nested, 1 of", out)
+
+    def test_long_own_text_of_a_capped_section_prints_as_an_outline_and_its_menu(self):
+        doc = docs.Doc("DESIGN.md", self.LONG + "\n### 4.1 B\n\nShort.\n")
         _, out = run(docs.show_section, doc, docs.find_section(doc, "4"), False, None)
-        self.assertIn("word word", out)
+        self.assertIn("its own text and its subsections' menu follow", out)
+        self.assertIn("4. A, without its subsections is ~", out)
+        self.assertIn("an outline of its 6 points", out)
+        self.assertNotIn("word word", out)
+        self.assertIn("4.1      B", out)
+        _, out = run(docs.show_section, doc, docs.find_section(doc, "4"), True, None, 5000, "6")
+        self.assertIn("Last.", out)
+        self.assertNotIn("Short.", out)
+
+    def test_an_outline_shortens_its_leads_to_stay_small(self):
+        doc = docs.Doc("DESIGN.md", "## 4. A\n\n" + "".join(f"Point {n} " + "long " * 40 + ".\n\n" for n in range(200)))
+        _, out = run(docs.show_section, doc, docs.find_section(doc, "4"), False, None, 1000)
+        self.assertIn("200 points, leads cut to", out)
+        self.assertIn("  200  ~53  Point 199", out)
+        self.assertLessEqual(docs.tokens(out), docs.OUTLINE_CAP + 200)
 
     def test_the_cap_comes_from_the_settings(self):
         _, out = self.main("4.6")
@@ -855,6 +908,16 @@ class SectionCap(Repo):
         self.assertIn("over section_cap (1,000)", out)
         self.assertNotIn("word word", out)
         self.assertIn("4.6.1    Built rules", out)
+
+    def test_points_and_a_bad_number_through_main(self):
+        self.configure(section_cap=100)
+        code, out = self.main("4.6", "--points", "1")
+        self.assertEqual(0, code)
+        self.assertIn("Search.", out)
+        self.assertNotIn("word word", out)
+        code, out = self.main("4.6", "--points", "9")
+        self.assertEqual(1, code)
+        self.assertIn("out of range", out)
 
 
 LESSONS = "# Lessons waiting for a retro\n\nA header that must survive.\n"

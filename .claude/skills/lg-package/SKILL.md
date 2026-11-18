@@ -26,7 +26,7 @@ On the ledger line after the dash, nowhere else:
 Precondition: its line says `can be built` and the owner said to start.
 
 1. **Read:** `python tools/docs.py XX-nnn` (block, questions, a menu of its citations), with `where <system>` and `tail design-history.md 1` in the same call. Confirm the block has every field `cut.md` lists and no open question changes its scope; if one does, stop and say so. Then read only what the work needs, in as few calls as you can:
-   - **Design:** a short section whole; a long one (over ~1,500 tokens on the menu) as its own text and the subsection needed, or only the lines that matter: `python tools/docs.py 4.3 --own 4.3.2 --grep "cache|retry"`.
+   - **Design:** a short section whole; a long one (~1,500+ tokens) as its own text and the subsection needed, an outline's `--points`, or matching lines: `python tools/docs.py 4.3 --own 4.3.2 --grep "cache|retry"`.
    - **Where code lives:** `where "recipe: <kind>"` lists the files a common addition touches, in order. Use a recipe, never a past package's diff [AZ-141].
    - **Code you only call:** `python tools/docs.py sig <Name> …`, several in one call; never Read it.
 2. **Size it before reading code,** from the block alone: the files its Touches and recipes name. Under about 20 files this session builds it (`build.md`) [PF-539]. Past that, tally the plan's lines by `dispatch.md` section 1: one chunk is still built here; more makes this session the manager.
