@@ -1,10 +1,10 @@
 # package: dispatch a build to chunk subagents
 
-For a build too large for one context (`SKILL.md` step 2). The session becomes the **manager**: it plans, briefs, checks, commits and closes on a small context, and each chunk runs in a fresh `chunk` subagent (`.claude/agents/chunk.md`) whose context ends with the chunk. Briefs and reports travel as files under `working/pending/XX-nnn/` (gitignored; remove the folder after the close). The manager edits inline only a few lines.
+For a build `SKILL.md` step 2 sized for chunks. The session becomes the **manager**: it plans, briefs, checks, commits and closes on a small context, and each chunk runs in a fresh `chunk` subagent (`.claude/agents/chunk.md`) whose context ends with the chunk. Briefs and reports travel as files under `working/pending/XX-nnn/` (gitignored; remove the folder after the close). The manager edits inline only a few lines.
 
 ## 1. The Build plan
 
-Write plan.md in that folder: the package id, the rule sections, the seams already found as `file:line` rows, then one to four chunks, in dependency order (a shared rule before its readers):
+Write plan.md in that folder: the package id, the rule sections, the seams as `SKILL.md` step 3 wrote them, then as many chunks as the tally asks, with no cap, in dependency order (a shared rule before its readers):
 
 ```markdown
 1. <chunk>: <deliverable>; files <list>; consumes <exact names and types from earlier chunks, or none>; produces <exact exports, routes, fields later chunks use>; copies <a sibling file or an earlier commit, git show --stat <sha>>; done when the tests (a) <named case and what it asserts>, (b) …; falsify (a); verify <the commands>  (S s, K k, T t)
@@ -14,7 +14,8 @@ Write plan.md in that folder: the package id, the rule sections, the seams alrea
 - **Consumes and produces match across lines exactly**: signatures and values, never bodies; a value the design lets stack is produced as a list [PF-533].
 - **The plan spends the package's two to five falsifications** as "falsify (x)" clauses on its foundation tests; a chunk with none falsifies nothing [PF-541].
 - **An exception in a rule names its effects**, never "any" or "every": a chunk builds the text literally [PF-536].
-- **Tally each line as (S, K, T):** S new site lists (a kind of addition `where-things-live.md` gives a recipe for, a new message or event with its readers), K the codebase's largest, most-read files it edits, T its tests. **Split where S ≥ 2, or T > 5 with K ≥ 1** [PF-535]. Under about 20 files is one chunk: each extra chunk costs a cold start and a check [PF-539]. Size each to end near 100k of context, never past about 250k.
+- **Tally each line as (S, K, T):** S new site lists, one each: a kind of addition `where-things-live.md` gives a recipe for, a new message or event with its readers, a new per-entity record, a repoint or sweep list, and every three new production fields [PF-632]; K the codebase's largest, most-read files it edits; T its tests. **Split where S ≥ 2, K ≥ 2, or T > 5 with K ≥ 1, with no exception for lines that share a shape** [PF-535, PF-627]. A line with K ≥ 1 plans about four tests [PF-541]. Size each to end near 100k of context, never past about 250k.
+- **Fast-tier tests and slow-tier cases (browser, end-to-end) are separate chunks** [PF-543]; what one consistency check joins lands in one chunk, so each goes green alone [PF-599].
 - A chunk adding a member to a shared type owns every exhaustive reader of it, listed in its files [PF-536].
 - A chunk the owner must judge by eye stays with the manager: the subagent builds it, the manager shows it and asks.
 
@@ -39,4 +40,4 @@ write your report to working/pending/XX-nnn/chunk-<n>-report.md.
 
 ## 4. Then
 
-The whole verification of `SKILL.md` step 4 runs on the manager's context, then `handover.md` and `close.md`. A failure inside one chunk's files goes back to its subagent; one across chunks is the manager's. The handover gives a line: `Dispatch: <n> chunks, models <per chunk>, calls <n/n/n>, found after the reports <count, each by who found it>`.
+The whole verification runs on the manager's context, with the commands in `working-agreements.md` "Build and verify", quiet and filtered to pass and fail lines; then `handover.md` and `close.md`. A failure inside one chunk's files goes back to its subagent; one across chunks is the manager's. The handover gives a line: `Dispatch: <n> chunks, models <per chunk>, calls <n/n/n>, found after the reports <count, each by who found it>`.

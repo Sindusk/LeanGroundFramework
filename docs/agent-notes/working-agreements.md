@@ -54,7 +54,7 @@ How work runs in this repository. `CLAUDE.md` routes here; read the section your
 
 ## Manual checks
 
-What a test can't show (look, feel, layout, sound, a real device, a third-party service) is checked by the owner from a checklist the lg-package skill's `handover.md` writes. A launch of the app for a manual check always waits for the owner's go-ahead, and so does a relaunch.
+What a test can't show (look, feel, layout, sound, a real device, a third-party service) is checked by the owner from a checklist the lg-package skill's `handover.md` writes. A launch of the app for a manual check always waits for the owner's go-ahead, and so does a relaunch. After a launch the agent ends its turn and never watches the log live; it reads the log once when the owner reports.
 <!-- bootstrap: how the owner runs the app for a check (the run command, a fixture or seed that sets up the state a checklist needs, debug controls), and whether a dev server they keep running should be reused rather than started. -->
 
 ## Commits and handoffs

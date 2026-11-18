@@ -6,7 +6,7 @@ A starting kit for a project built entirely through AI agents: a routing `CLAUDE
 
 1. **Scaffold:** layout, `AGENTS.md`, `CLAUDE.md`, `DESIGN.md`, `LEDGER.md`, history, questions, agent notes, `tools/leanground.json`. Done.
 2. **Tooling:** `tools/docs.py` (with `tools/docs_sig.py`, the `sig` adapters for Java, Python and TypeScript/JavaScript, and a `tools/project_docs.py` plugin hook); the hooks in `.claude/settings.json` (`tools/search_gate.py`, `tools/edit_gate.py`, `tools/stop_check.py`); `.githooks/commit-msg` (`tools/commit_msg.py`); tests in `tools/test_docs.py` and `tools/test_hooks.py`. Done.
-3. **Skills and agents:** `.claude/skills/` `lg-package` (cut, build, handover, close, retro, dispatch for oversized packages, `why.md`), `lg-design` (raise, round, record, consolidate, triage, working documents), `lg-feedback` (loose notes, sorted by size) and `lg-bootstrap` (interview, adopting existing code); `.claude/agents/` `chunk` and `fix`. Budgets in `tools/leanground.json`, enforced by `docs.py check`. Done.
+3. **Skills and agents:** `.claude/skills/` `lg-package` (cut, build in one session, handover, close, retro, dispatch for oversized packages, `why.md`), `lg-design` (raise, round, record, consolidate, triage, working documents), `lg-feedback` (loose notes, sorted by size) and `lg-bootstrap` (interview, adopting existing code); `.claude/agents/` `chunk` and `fix`. Budgets in `tools/leanground.json`, enforced by `docs.py check`. Done.
 4. **Dry run:** a throwaway project bootstrapped and one package taken from cut to close; the cost measured and the kit fixed. Done (below).
 
 ## The dry run (2026-10-27)

@@ -31,6 +31,6 @@ The tester reports in short rounds; answer with the failing step's follow-ups or
 
 ## Launch
 
-**Only on the owner's go-ahead**, after the report and checklist, and a relaunch too. Reuse a server the owner keeps running rather than starting a second. Run the app in the background and watch its log with a Monitor whose filter passes only warnings and errors from the project and ends itself when the app stops, since every event is a whole turn. Stop a running watch (TaskStop) before a relaunch. Take exact read-outs from the log where it records them rather than asking the tester.
+**Only on the owner's go-ahead**, after the report and checklist, and a relaunch too. Reuse a server the owner keeps running rather than starting a second. Launch the app in the background, say so in one line, and end the turn: no Monitor, tail or poll of its log, since every event is a whole turn [AZ-191, MM-145]. A background process's completion notice gets no reply [AZ-209]. **On the owner's report**, read the log once, errors and logged read-outs in one call with known noise filtered, and take exact read-outs from it rather than asking the tester. Read it before any relaunch too, since a launch overwrites it; stop the running app (TaskStop) first.
 
 A failing step gets focused follow-up steps and a fix commit; the package stays open until the owner approves.
